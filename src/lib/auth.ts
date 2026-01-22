@@ -1,90 +1,108 @@
 import { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { MySQLAdapter } from "./auth-adapter"
+import { pool } from "./db"
 import bcrypt from "bcryptjs"
-import { prisma } from "./prisma"
-import { Role } from "@prisma/client"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: MySQLAdapter(),
+
   providers: [
-    // Google OAuth
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID! ,
+      clientId: process. env.GOOGLE_CLIENT_ID! ,
       clientSecret: process. env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true, // ✅ AJOUTE CETTE LIGNE
     }),
-    
-    // Email + Password
+
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email:  { label: "Email", type:  "email" },
-        password:  { label: "Mot de passe", type: "password" }
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email et mot de passe requis")
         }
 
-        const user = await prisma. user.findUnique({
-          where: { email: credentials.email }
-        })
+        const [rows] = await pool.execute(
+          `SELECT * FROM User WHERE email = ?`,
+          [credentials.email]
+        )
+        const users = rows as any[]
 
-        if (!user || !user.password) {
+        if (users.length === 0) {
           throw new Error("Utilisateur non trouvé")
         }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+        const user = users[0]
 
-        if (!isPasswordValid) {
-          throw new Error("Mot de passe incorrect")
+        if (!user.password) {
+          throw new Error("Utilisez la connexion Google")
         }
 
-        if (!user.isActive) {
-          throw new Error("Compte désactivé")
+        const isValid = await bcrypt.compare(credentials.password, user.password)
+
+        if (!isValid) {
+          throw new Error("Mot de passe incorrect")
         }
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
+          image: user.image,
           role: user.role,
         }
-      }
-    })
+      },
+    }),
   ],
-  
+
   session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    strategy:  "jwt",
   },
-  
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role
-        token.id = user.id
-      }
-      return token
-    },
-    
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role as Role
-        session.user.id = token.id as string
-      }
-      return session
-    },
-  },
-  
+
   pages: {
     signIn: "/login",
     error: "/login",
   },
-  
-  debug: process.env.NODE_ENV === "development",
+
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      // ✅ Permettre tous les logins
+      return true
+    },
+
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.id = user. id
+        token.role = (user as any).role || "USER"
+      }
+      
+      // ✅ Si c'est une connexion Google, récupérer le rôle depuis la DB
+      if (account?.provider === "google" && user?. email) {
+        const [rows] = await pool.execute(
+          `SELECT role FROM User WHERE email = ?`,
+          [user.email]
+        )
+        const users = rows as any[]
+        if (users.length > 0) {
+          token.role = users[0].role
+        }
+      }
+      
+      return token
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.role = token.role as string
+      }
+      return session
+    },
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
 }
