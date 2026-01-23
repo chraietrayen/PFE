@@ -132,7 +132,7 @@ export default async function HomePage() {
     if (userRole === "SUPER_ADMIN") return true
     
     // Check if user has VIEW permission for this module
-    const modulePerms = userPermissions[module.permissionModule]
+    const modulePerms = (userPermissions as Record<string, string[]>)[module.permissionModule]
     return modulePerms && modulePerms.includes('VIEW')
   })
 
