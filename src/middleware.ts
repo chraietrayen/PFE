@@ -31,5 +31,6 @@ export const config = {
     "/rh/:path*",
     "/parametres/:path*",
     "/chatbot/:path*",
+    "/settings/:path*",
   ],
 }
