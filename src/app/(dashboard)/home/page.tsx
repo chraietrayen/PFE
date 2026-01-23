@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { ModuleCard } from "@/components/dashboard/ModuleCard"
+import { query } from "@/lib/mysql-direct"
 
 // Icons Components
 
@@ -31,16 +32,15 @@ const ParametresIcon = () => (
 
 // Configuration des modules
 const allModules = [
- {   id: "dashboard",
+  {
+    id: "dashboard",
     title: "Tableau de bord",
     description: "Vue d'ensemble des indicateurs clés et performances RH.",
     icon: <DashboardIcon />,
     href: "/dashboard",
     color: "violet" as const,
-    roles : ["SUPER_ADMIN", "RH", "USER"],
+    permissionModule: "dashboard",
   },
- 
-  
   {
     id: "chatbot",
     title: "Chatbot IA",
@@ -48,9 +48,8 @@ const allModules = [
     icon: <ChatbotIcon />,
     href: "/chatbot",
     color: "teal" as const,
-    roles: ["SUPER_ADMIN", "RH"],
+    permissionModule: "chatbot",
   },
-  
   {
     id: "parametres",
     title: "Paramètres",
@@ -58,9 +57,62 @@ const allModules = [
     icon: <ParametresIcon />,
     href: "/parametres/users",
     color: "green" as const,
-    roles: ["SUPER_ADMIN"],
+    permissionModule: "parametres",
   },
 ]
+
+async function getUserPermissions(email: string) {
+  try {
+    // Get user's role
+    const users = await query(
+      'SELECT id, role FROM User WHERE email = ?',
+      [email]
+    ) as any[]
+
+    if (!users || users.length === 0) {
+      return { permissions: {} }
+    }
+
+    const user = users[0]
+
+    // Get the Role ID based on the role name
+    const roles = await query(
+      'SELECT id FROM Role WHERE name = ?',
+      [user.role]
+    ) as any[]
+
+    if (roles && roles.length > 0) {
+      const roleId = roles[0].id
+
+      // Get permissions for this role
+      const permissions = await query(`
+        SELECT p.module, p.action
+        FROM RolePermission rp
+        JOIN Permission p ON rp.permissionId = p.id
+        WHERE rp.roleId = ?
+      `, [roleId]) as any[]
+
+      // Group permissions by module
+      const modulePermissions: Record<string, string[]> = {}
+      
+      permissions.forEach((perm: any) => {
+        const module = perm.module.toLowerCase()
+        
+        if (!modulePermissions[module]) {
+          modulePermissions[module] = []
+        }
+        
+        modulePermissions[module].push(perm.action)
+      })
+
+      return { permissions: modulePermissions, role: user.role }
+    }
+  } catch (error) {
+    console.error("Error fetching permissions:", error)
+  }
+  return { permissions: {} }
+}
+
 export default async function HomePage() {
   const session = await getServerSession(authOptions)
 
@@ -68,10 +120,21 @@ export default async function HomePage() {
     redirect("/login")
   }
 
-  const firstName = session.user.name?. split(" ")[0] || "Utilisateur"
-  
+  const firstName = session.user.name?.split(" ")[0] || "Utilisateur"
   const userRole = session.user.role || "USER"
-  const modules = allModules.filter((module) => module.roles?.includes(userRole))
+  
+  // Get user permissions from database
+  const { permissions: userPermissions } = await getUserPermissions(session.user.email!)
+  
+  // Filter modules based on VIEW permission
+  const modules = allModules.filter((module) => {
+    // SUPER_ADMIN has access to everything
+    if (userRole === "SUPER_ADMIN") return true
+    
+    // Check if user has VIEW permission for this module
+    const modulePerms = userPermissions[module.permissionModule]
+    return modulePerms && modulePerms.includes('VIEW')
+  })
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
