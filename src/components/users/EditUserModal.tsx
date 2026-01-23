@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { FiX, FiUser } from "react-icons/fi"
+import { useNotification } from "@/contexts/NotificationContext"
 
 interface EditUserModalProps {
   user: any
@@ -15,6 +16,7 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
   const [email, setEmail] = useState(user.email || "")
   const [role, setRole] = useState(user.role || "USER")
   const [saving, setSaving] = useState(false)
+  const { showNotification } = useNotification()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,15 +39,30 @@ export default function EditUserModal({ user, onClose, onSave }: EditUserModalPr
         if (onSave) {
           onSave(updatedUser)
         }
-        alert("Utilisateur mis à jour avec succès!")
+        showNotification({
+          type: 'success',
+          title: 'Utilisateur mis à jour',
+          message: 'Les informations de l\'utilisateur ont été mises à jour avec succès',
+          duration: 4000
+        })
         onClose()
       } else {
         const error = await response.json()
-        alert(error.message || "Erreur lors de la mise à jour")
+        showNotification({
+          type: 'error',
+          title: 'Erreur de mise à jour',
+          message: error.message || 'Impossible de mettre à jour l\'utilisateur',
+          duration: 5000
+        })
       }
     } catch (error) {
       console.error("Error updating user:", error)
-      alert("Erreur lors de la mise à jour de l'utilisateur")
+      showNotification({
+        type: 'error',
+        title: 'Erreur de connexion',
+        message: 'Impossible de mettre à jour l\'utilisateur. Veuillez vérifier votre connexion.',
+        duration: 5000
+      })
     } finally {
       setSaving(false)
     }

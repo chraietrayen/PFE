@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { FiX, FiUser } from "react-icons/fi"
+import { useNotification } from "@/contexts/NotificationContext"
 
 interface AddUserModalProps {
   onClose: () => void
@@ -16,6 +17,7 @@ export default function AddUserModal({ onClose, onSave }: AddUserModalProps) {
   const [role, setRole] = useState("SUPER_ADMIN")
   const [provider, setProvider] = useState("Credentials")
   const [saving, setSaving] = useState(false)
+  const { showNotification } = useNotification()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,15 +41,30 @@ export default function AddUserModal({ onClose, onSave }: AddUserModalProps) {
         if (onSave) {
           onSave(newUser)
         }
-        alert("Utilisateur créé avec succès!")
+        showNotification({
+          type: 'success',
+          title: 'Utilisateur créé',
+          message: 'Le nouvel utilisateur a été créé avec succès',
+          duration: 4000
+        })
         onClose()
       } else {
         const error = await response.json()
-        alert(error.message || "Erreur lors de la création")
+        showNotification({
+          type: 'error',
+          title: 'Erreur de création',
+          message: error.message || 'Impossible de créer l\'utilisateur',
+          duration: 5000
+        })
       }
     } catch (error) {
       console.error("Error creating user:", error)
-      alert("Erreur lors de la création de l'utilisateur")
+      showNotification({
+        type: 'error',
+        title: 'Erreur de connexion',
+        message: 'Impossible de créer l\'utilisateur. Veuillez vérifier votre connexion.',
+        duration: 5000
+      })
     } finally {
       setSaving(false)
     }
