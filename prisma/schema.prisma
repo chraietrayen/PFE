@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================= NEXTAUTH TABLES =================
+// ========== NEXTAUTH TABLES ==========
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
@@ -47,19 +47,24 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// ================= USERS =================
+// ========== USERS/EMPLOYES ==========
+
 model User {
   id            String      @id @default(cuid())
-  cin           String?     @unique
+  cin           String?     @unique                // Optionnel: le CIN RH (peut être nul pour admin technique)
   name          String?
   lastName      String?     @map("last_name")
   email         String      @unique
   emailVerified DateTime?   @map("email_verified")
   password      String?
-  image         String? // requis pour Google
+  image         String?                                // url photo (Google)
   sexe          Sexe?
   rib           String?     @db.VarChar(24)
-  roleEnum      Role        @default(USER) // rôle simplifié pour NextAuth
+  adresse       String?
+  telephone     String?
+  dateEmbauche  DateTime?   @map("date_embauche")
+  typeContrat   ContratType?@map("type_contrat")
+  roleEnum      Role        @default(USER)            // rôle simplifié pour NextAuth
   role          RoleEntity? @relation(fields: [roleId], references: [id])
   roleId        String?
   isActive      Boolean     @default(true) @map("is_active")
@@ -68,22 +73,30 @@ model User {
 
   accounts Account[]
   sessions Session[]
+  dossiers      DossierEmploye[]
+  demandesConge DemandeConge[]
 
   @@map("users")
 }
 
+// Enums RH
 enum Sexe {
   HOMME
   FEMME
 }
-
+enum ContratType {
+  CDI
+  CDD
+  Stage
+  Freelance
+}
 enum Role {
   SUPER_ADMIN
   RH
   USER
 }
 
-// ================= PASSWORD RESET =================
+// ========== PASSWORD RESET ==========
 model PasswordResetToken {
   id        String   @id @default(cuid())
   email     String
@@ -95,7 +108,7 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-// ================= ROLE & PERMISSIONS =================
+// ========== ROLE & PERMISSIONS ==========
 model RoleEntity {
   id              String           @id @default(cuid())
   name            String           @unique
@@ -111,7 +124,7 @@ model RoleEntity {
 
 model Permission {
   id     String           @id @default(cuid())
-  module String // Module (ex: RH, Paramètres, Chatbot)
+  module String // (ex: RH, Paramètres, Chatbot, ...)
   type   PermissionType
   action PermissionAction
 
@@ -141,7 +154,6 @@ enum PermissionType {
   BASE
   ADVANCED
 }
-
 enum PermissionAction {
   ADD
   DELETE
@@ -151,4 +163,50 @@ enum PermissionAction {
   VALIDATE
   VERIFY
   PROCESS
+}
+
+// ========== DOSSIERS EMPLOYES ==========
+model DossierEmploye {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          DossierType
+  titre         String
+  description   String?
+  fichier       String?
+  dateObtention DateTime?    @map("date_obtention")
+
+  @@map("dossier_employe")
+}
+
+enum DossierType {
+  DIPLOME
+  CERTIFICAT
+  ATTESTATION
+}
+
+// ========== DEMANDES DE CONGÉ ==========
+model DemandeConge {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       CongeType
+  dateDebut  DateTime      @map("date_debut")
+  dateFin    DateTime      @map("date_fin")
+  status     StatutConge   @default(EN_ATTENTE)
+  commentaire String?
+
+  @@map("demande_conge")
+}
+
+enum CongeType {
+  PAID
+  UNPAID
+  MATERNITE
+  PREAVIS
+}
+enum StatutConge {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
 }
