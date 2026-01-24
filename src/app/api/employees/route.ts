@@ -7,29 +7,44 @@ import { query } from '@/lib/mysql-direct';
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    // Only SUPER_ADMIN can view all employees
-    if (session.user.role !== 'SUPER_ADMIN') {
+    let employees: any[] = [];
+    // SUPER_ADMIN: fetch all employees
+    if (session.user.role === 'SUPER_ADMIN') {
+      employees = await query(`
+        SELECT 
+          e.*,
+          u.id as user_id,
+          u.name as user_name,
+          u.email as user_email,
+          u.role as user_roleEnum,
+          u.createdAt as user_createdAt
+        FROM Employe e
+        INNER JOIN User u ON e.user_id = u.id
+        ORDER BY e.created_at DESC
+      `);
+    } else if (session.user.role === 'RH') {
+      // RH: fetch only validated employees
+      employees = await query(`
+        SELECT 
+          e.*,
+          u.id as user_id,
+          u.name as user_name,
+          u.email as user_email,
+          u.role as user_roleEnum,
+          u.createdAt as user_createdAt
+        FROM Employe e
+        INNER JOIN User u ON e.user_id = u.id
+        WHERE e.statut = 'APPROUVE'
+        ORDER BY e.created_at DESC
+      `);
+    } else {
+      // Other roles: forbidden
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
-
-    // Fetch all employees with user info using direct MySQL query
-    const employees: any = await query(`
-      SELECT 
-        e.*,
-        u.id as user_id,
-        u.name as user_name,
-        u.email as user_email,
-        u.role as user_roleEnum,
-        u.createdAt as user_createdAt
-      FROM Employe e
-      INNER JOIN User u ON e.user_id = u.id
-      ORDER BY e.created_at DESC
-    `);
 
     // Transform the flat data structure to match the expected format
     const formattedEmployees = employees.map((emp: any) => ({
@@ -72,7 +87,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
@@ -100,7 +114,6 @@ export async function POST(req: NextRequest) {
 
     // If userId is provided, only SUPER_ADMIN can update other users
     const targetUserId = userId || session.user.id;
-    
     if (userId && userId !== session.user.id && session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
     }
@@ -152,7 +165,6 @@ export async function POST(req: NextRequest) {
       // Create new employee profile
       // Generate a UUID for the new employee
       const employeeId = `emp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
       await query(
         `INSERT INTO Employe (
           id, user_id, nom, prenom, email, birthday, sexe,
