@@ -34,7 +34,7 @@ export async function PATCH(
     const leaveRequests: any = await query(
       `SELECT dc.*, u.name as user_name, u.email as user_email
        FROM demande_conge dc
-       JOIN User u ON dc.userId = u.id
+       JOIN User u ON dc.user_id = u.id
        WHERE dc.id = ?`,
       [requestId]
     );
@@ -83,7 +83,7 @@ export async function PATCH(
 
       // Notify RH and Super Admins of the decision
       const admins: any = await query(
-        `SELECT id FROM User WHERE role IN ('RH', 'SUPER_ADMIN') AND status = 'ACTIVE'`
+        `SELECT id FROM User WHERE role_enum IN ('RH', 'SUPER_ADMIN') AND status = 'ACTIVE'`
       );
 
       if (admins && admins.length > 0) {
@@ -269,7 +269,7 @@ export async function DELETE(
     if (isOwner && leaveRequest.status === "EN_ATTENTE") {
       try {
         const rhUsers: any = await query(
-          `SELECT id FROM User WHERE role IN ('RH', 'SUPER_ADMIN') AND status = 'ACTIVE'`
+          `SELECT id FROM User WHERE role_enum IN ('RH', 'SUPER_ADMIN') AND status = 'ACTIVE'`
         );
 
         if (rhUsers && rhUsers.length > 0) {
