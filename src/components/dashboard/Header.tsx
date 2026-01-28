@@ -17,7 +17,7 @@ export function Header() {
           <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
             <span className="text-white font-bold text-lg">S</span>
           </div>
-          <span className="font-semibold text-gray-900 dark:text-white text-lg">Santec AI</span>
+          <span className="font-semibold text-gray-900 dark:text-white text-lg">Santec_AI</span>
         </div>
 
         {/* Right side */}
