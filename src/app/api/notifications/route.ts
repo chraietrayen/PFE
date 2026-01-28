@@ -1,32 +1,73 @@
 /**
  * Notifications API
- * Manage user notifications
+ * Manage user notifications with role-based filtering
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/lib/rbac";
 import { notificationService } from "@/lib/services/notification-service";
+import { query } from "@/lib/mysql-direct";
 
-// Get user notifications
+// Get user notifications (filtered by role)
 export const GET = withAuth(async (req: NextRequest, user) => {
   try {
     const { searchParams } = new URL(req.url);
     const unreadOnly = searchParams.get("unreadOnly") === "true";
     
-    console.log(`📬 Fetching notifications for user ${user.id}, unreadOnly: ${unreadOnly}`);
+    console.log(`📬 Fetching notifications for user ${user.id} (${user.role}), unreadOnly: ${unreadOnly}`);
     
-    const notifications = await notificationService.getUserNotifications(
+    // Get user's role from database
+    const users: any = await query(
+      `SELECT role FROM User WHERE id = ? LIMIT 1`,
+      [user.id]
+    );
+    const userRole = users?.[0]?.role || 'USER';
+    
+    // Get all notifications for the user
+    const allNotifications = await notificationService.getUserNotifications(
       user.id,
       unreadOnly
     );
     
+    // Filter notifications based on role
+    // USER: Only their own notifications (profile, leave requests, pointages)
+    // RH: RH-specific notifications + their own user notifications
+    // SUPER_ADMIN: All notifications including system alerts
+    const notifications = allNotifications.filter((notif: any) => {
+      try {
+        const metadata = notif.metadata ? JSON.parse(notif.metadata) : {};
+        const targetRole = metadata.targetRole || 'USER';
+        
+        // USER can see notifications targeted to USER
+        if (userRole === 'USER') {
+          return targetRole === 'USER';
+        }
+        
+        // RH can see RH and USER targeted notifications (their own profile/pointage notifications)
+        if (userRole === 'RH') {
+          return targetRole === 'RH' || (targetRole === 'USER' && notif.user_id === user.id);
+        }
+        
+        // SUPER_ADMIN can see all notifications
+        if (userRole === 'SUPER_ADMIN') {
+          return true;
+        }
+        
+        return true; // Fallback
+      } catch (e) {
+        // If parsing fails, show the notification
+        return true;
+      }
+    });
+    
     const unreadCount = await notificationService.getUnreadCount(user.id);
     
-    console.log(`📊 Found ${notifications.length} notifications, ${unreadCount} unread`);
+    console.log(`📊 Found ${notifications.length}/${allNotifications.length} notifications for role ${userRole}, ${unreadCount} unread`);
     
     return NextResponse.json({
       notifications,
       unreadCount,
+      role: userRole
     });
   } catch (error: any) {
     console.error("Error fetching notifications:", error);

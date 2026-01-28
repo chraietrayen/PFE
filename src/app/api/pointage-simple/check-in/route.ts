@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/mysql-direct";
+import { prisma } from "@/lib/prisma";
 import { notificationService } from "@/lib/services/notification-service";
 
 export async function POST(req: NextRequest) {
@@ -46,52 +46,58 @@ export async function POST(req: NextRequest) {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      const existingCheckIn: any = await query(
-        `SELECT id FROM Pointage 
-         WHERE user_id = ? 
-         AND type = 'IN' 
-         AND timestamp >= ? 
-         AND timestamp < ?
-         AND id NOT IN (
-           SELECT check_in_id FROM Pointage WHERE type = 'OUT' AND check_in_id IS NOT NULL
-         )
-         LIMIT 1`,
-        [session.user.id, today, tomorrow]
-      );
+      const existingCheckIn = await prisma.pointage.findFirst({
+        where: {
+          userId: session.user.id,
+          type: 'IN',
+          timestamp: {
+            gte: today,
+            lt: tomorrow
+          }
+        },
+        select: { id: true }
+      });
 
-      if (existingCheckIn && existingCheckIn.length > 0) {
-        anomalyDetected = true;
-        anomalyReason = "Check-in déjà effectué aujourd'hui sans check-out";
+      if (existingCheckIn) {
+        // Vérifier si ce check-in n'a pas de check-out correspondant
+        const hasCheckOut = await prisma.pointage.count({
+          where: {
+            userId: session.user.id,
+            type: 'OUT',
+            timestamp: {
+              gte: today,
+              lt: tomorrow
+            }
+          }
+        });
+
+        if (hasCheckOut === 0) {
+          anomalyDetected = true;
+          anomalyReason = "Check-in déjà effectué aujourd'hui sans check-out";
+        }
       }
     } catch (checkError) {
       console.error("Error checking existing check-in:", checkError);
       // Continue même si la vérification échoue
     }
 
-    // Insérer le pointage
-    await query(
-      `INSERT INTO Pointage (
-        id, user_id, type, timestamp, status, 
-        device_fingerprint, ip_address, geolocation,
-        captured_photo, face_verified, verification_score,
-        anomaly_detected, anomaly_reason
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        pointageId,
-        session.user.id,
-        "IN",
-        timestamp,
-        anomalyDetected ? "ANOMALY" : "VALID",
-        deviceFingerprint ? JSON.stringify(deviceFingerprint) : null,
-        ipAddress,
-        geolocation ? JSON.stringify(geolocation) : null,
-        capturedPhoto,
-        faceVerified ? 1 : 0,
-        verificationScore || null,
-        anomalyDetected ? 1 : 0,
-        anomalyReason
-      ]
-    );
+    // Insérer le pointage avec Prisma
+    await prisma.pointage.create({
+      data: {
+        id: pointageId,
+        userId: session.user.id,
+        type: 'IN',
+        timestamp: timestamp,
+        status: anomalyDetected ? 'PENDING_REVIEW' : 'VALID',
+        ipAddress: ipAddress,
+        geolocation: geolocation ? JSON.stringify(geolocation) : null,
+        capturedPhoto: capturedPhoto || null,
+        faceVerified: faceVerified || false,
+        verificationScore: verificationScore || null,
+        anomalyDetected: anomalyDetected,
+        anomalyReason: anomalyReason
+      }
+    });
 
     // Send notifications
     try {
@@ -107,12 +113,16 @@ export async function POST(req: NextRequest) {
       }
 
       // Notify RH and SUPER_ADMIN for all pointages (success or anomaly)
-      const rhUsers: any = await query(
-        `SELECT id FROM User WHERE role IN ('RH', 'SUPER_ADMIN') AND status = 'ACTIVE'`
-      );
+      const rhUsers = await prisma.user.findMany({
+        where: {
+          roleEnum: { in: ['RH', 'SUPER_ADMIN'] },
+          status: 'ACTIVE'
+        },
+        select: { id: true }
+      });
 
       if (rhUsers && rhUsers.length > 0) {
-        const rhUserIds = rhUsers.map((rh: any) => rh.id);
+        const rhUserIds = rhUsers.map(rh => rh.id);
         const userName = session.user.name || session.user.email || "Utilisateur";
 
         if (anomalyDetected) {
@@ -123,6 +133,8 @@ export async function POST(req: NextRequest) {
             anomalyReason || "Anomalie détectée lors du pointage"
           );
         } else {
+          // Note: Uncomment below to notify RH of successful pointages
+          // This can generate many notifications. Only enable if needed.
           await notificationService.notifyRHPointageSuccess(
             rhUserIds,
             userName,

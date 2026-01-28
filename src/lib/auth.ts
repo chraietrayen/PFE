@@ -10,9 +10,9 @@ export const authOptions: NextAuthOptions = {
 
   providers: [
     GoogleProvider({
-      clientId: process. env.GOOGLE_CLIENT_ID! ,
-      clientSecret: process. env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true, // ✅ AJOUTE CETTE LIGNE
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
 
     CredentialsProvider({
@@ -53,14 +53,17 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
-          role: user.role,
+          role: user.roleEnum || user.role,
+          status: user.status || "INACTIVE",
         }
       },
     }),
   ],
 
   session: {
-    strategy:  "jwt",
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
   },
 
   pages: {

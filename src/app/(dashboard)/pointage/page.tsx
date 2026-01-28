@@ -223,62 +223,60 @@ export default function PointagePage() {
   };
 
   const submitPointage = async () => {
-    if (!capturedImage) {
-      showNotification({
-        type: "error",
-        title: "Erreur",
-        message: "Veuillez capturer une photo"
-      });
-      return;
-    }
-    
     setLoading(true);
     
     try {
-      // Step 1: Verify face in the captured image
-      showNotification({
-        type: "info",
-        title: "Vérification en cours",
-        message: "Vérification de votre visage..."
-      });
-
-      const faceVerifyResponse = await fetch("/api/face-verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: capturedImage,
-          userId: session?.user?.id
-        })
-      });
-
-      const faceVerifyData = await faceVerifyResponse.json();
-
-      if (!faceVerifyResponse.ok) {
+      // Step 1: Verify face in the captured image (if photo was taken)
+      let faceVerifyData = { verified: false, confidence: 0 };
+      
+      if (capturedImage) {
         showNotification({
-          type: "error",
-          title: "Vérification indisponible",
-          message: faceVerifyData.message || faceVerifyData.error || "Service de reconnaissance faciale indisponible"
+          type: "info",
+          title: "Vérification en cours",
+          message: "Vérification de votre visage..."
         });
-        setLoading(false);
-        return;
-      }
 
-      if (!faceVerifyData.verified) {
-        showNotification({
-          type: "error",
-          title: "Vérification échouée",
-          message: faceVerifyData.message || "Visage non reconnu. Veuillez réessayer."
+        try {
+          const faceVerifyResponse = await fetch("/api/face-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: capturedImage,
+            userId: session?.user?.id
+          })
         });
-        setLoading(false);
-        return;
-      }
 
-      // Show confidence score
-      if (faceVerifyData.confidence && faceVerifyData.confidence < 0.7) {
+        if (faceVerifyResponse.ok) {
+          faceVerifyData = await faceVerifyResponse.json();
+          
+          if (!faceVerifyData.verified) {
+            showNotification({
+              type: "warning",
+              title: "Vérification faciale échouée",
+              message: "Pointage enregistré sans vérification faciale"
+            });
+          }
+        } else {
+          showNotification({
+            type: "warning",
+            title: "Vérification faciale indisponible",
+            message: "Pointage enregistré sans vérification faciale"
+          });
+        }
+      } catch (faceError) {
+        console.error("Face verification error:", faceError);
         showNotification({
           type: "warning",
-          title: "Qualité moyenne",
-          message: `Visage détecté avec ${Math.round(faceVerifyData.confidence * 100)}% de confiance. Essayez d'améliorer l'éclairage.`
+          title: "Vérification faciale indisponible",
+          message: "Pointage enregistré sans vérification faciale"
+        });
+      }
+      } else {
+        // No photo captured - pointage without photo
+        showNotification({
+          type: "info",
+          title: "Pointage sans photo",
+          message: "Enregistrement du pointage sans photo..."
         });
       }
 
@@ -318,10 +316,9 @@ export default function PointagePage() {
         body: JSON.stringify({
           deviceFingerprint,
           geolocation: geolocationData,
-          capturedPhoto: capturedImage,
-          faceVerified: true,
-          verificationScore: Math.round((faceVerifyData.confidence || 0.95) * 100),
-          faceAttributes: faceVerifyData.faceAttributes,
+          capturedPhoto: capturedImage || null,
+          faceVerified: faceVerifyData.verified || false,
+          verificationScore: Math.round((faceVerifyData.confidence || 0) * 100),
         }),
       });
       
@@ -622,13 +619,32 @@ export default function PointagePage() {
                 {/* Controls */}
                 <div className="flex gap-3">
                   {!capturing && !capturedImage && (
-                    <Button
-                      onClick={startCamera}
-                      className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-4 text-lg font-bold shadow-lg"
-                    >
-                      <FiCamera className="w-6 h-6 mr-2" />
-                      Démarrer la Caméra
-                    </Button>
+                    <>
+                      <Button
+                        onClick={startCamera}
+                        className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white py-4 text-lg font-bold shadow-lg"
+                      >
+                        <FiCamera className="w-6 h-6 mr-2" />
+                        Démarrer la Caméra
+                      </Button>
+                      <Button
+                        onClick={submitPointage}
+                        disabled={loading}
+                        className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-4 text-lg font-bold shadow-lg"
+                      >
+                        {loading ? (
+                          <>
+                            <FiRefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                            Envoi...
+                          </>
+                        ) : (
+                          <>
+                            <FiCheck className="w-6 h-6 mr-2" />
+                            Sans Photo
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
                   
                   {capturing && !capturedImage && (
@@ -685,7 +701,7 @@ export default function PointagePage() {
                 <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-sm text-blue-800 dark:text-blue-300 flex items-center gap-2">
                     <FiEye className="w-4 h-4" />
-                    <span className="font-medium">Conseils:</span> Assurez-vous d'avoir un bon éclairage et que votre visage est bien visible dans le cadre.
+                    <span className="font-medium">Options:</span> Vous pouvez pointer avec ou sans photo. La vérification faciale est optionnelle.
                   </p>
                 </div>
               </div>

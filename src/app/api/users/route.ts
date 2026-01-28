@@ -42,11 +42,14 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    // Check if user has VIEW permission for parametres
-    const canView = await hasPermission(session.user.email!, 'PARAMETRES', 'VIEW')
-    
-    if (!canView) {
-      return NextResponse.json({ error: "Accès refusé - Permission VIEW requise" }, { status: 403 })
+    // RH and SUPER_ADMIN can view users (RH needs to validate employee profiles)
+    if (session.user.role !== 'RH' && session.user.role !== 'SUPER_ADMIN') {
+      // Check if user has VIEW permission for parametres
+      const canView = await hasPermission(session.user.email!, 'PARAMETRES', 'VIEW')
+      
+      if (!canView) {
+        return NextResponse.json({ error: "Accès refusé - Permission VIEW requise" }, { status: 403 })
+      }
     }
 
     console.log("Fetching users for", session.user.role, ":", session.user.email)

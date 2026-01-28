@@ -75,6 +75,7 @@ export async function requireActiveStatus(request?: NextRequest) {
 
 /**
  * Check if user has permission for specific module and action
+ * Uses direct database query instead of HTTP self-request
  */
 export async function hasPermission(
   userId: string,
@@ -82,18 +83,40 @@ export async function hasPermission(
   action: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/user-permissions`, {
-      headers: {
-        "x-user-id": userId,
+    // Import prisma directly to avoid circular dependencies
+    const { prisma } = await import("@/lib/prisma");
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
-    
-    if (!response.ok) return false;
-    
-    const permissions = await response.json();
-    
-    // Check if user has permission
-    return permissions[module]?.actions?.includes(action) || false;
+
+    if (!user) return false;
+
+    // SUPER_ADMIN has all permissions
+    if (user.roleEnum === "SUPER_ADMIN") return true;
+
+    // Check role-based permissions
+    if (user.role?.rolePermissions) {
+      const hasModulePermission = user.role.rolePermissions.some(
+        (rp) =>
+          rp.permission.module.toLowerCase() === module.toLowerCase() &&
+          rp.permission.action === action
+      );
+      if (hasModulePermission) return true;
+    }
+
+    return false;
   } catch (error) {
     console.error("Error checking permission:", error);
     return false;

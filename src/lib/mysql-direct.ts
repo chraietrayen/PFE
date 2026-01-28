@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise'
+import mysql, { RowDataPacket, OkPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise'
 
 let pool: mysql.Pool | null = null
 
@@ -20,11 +20,31 @@ export function getPool() {
   return pool
 }
 
-export async function query(sql: string, params?: any[]) {
+export async function getConnection(): Promise<PoolConnection> {
+  return await getPool().getConnection()
+}
+
+export async function query<T extends RowDataPacket[] = RowDataPacket[]>(
+  sql: string, 
+  params?: any[]
+): Promise<T> {
   const connection = await getPool().getConnection()
   try {
-    const [rows] = await connection.execute(sql, params)
+    const [rows] = await connection.execute<T>(sql, params)
     return rows
+  } finally {
+    connection.release()
+  }
+}
+
+export async function execute(
+  sql: string, 
+  params?: any[]
+): Promise<OkPacket | ResultSetHeader> {
+  const connection = await getPool().getConnection()
+  try {
+    const [result] = await connection.execute<OkPacket | ResultSetHeader>(sql, params)
+    return result
   } finally {
     connection.release()
   }

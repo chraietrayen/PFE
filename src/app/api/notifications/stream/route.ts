@@ -16,27 +16,39 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
-      const send = (payload: unknown) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
-      };
-
+      let isControllerClosed = false;
       let timer: NodeJS.Timeout | null = null;
 
+      const send = (payload: unknown) => {
+        if (isControllerClosed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        } catch (error) {
+          // Controller is closed, ignore
+          isControllerClosed = true;
+          if (timer) clearInterval(timer);
+        }
+      };
+
       const tick = async () => {
+        if (isControllerClosed) return;
+        
         try {
           const isAdmin = userRole === "RH" || userRole === "SUPER_ADMIN";
-          const notifications: any = await query(
+          
+          const notifications = await query(
             isAdmin
               ? `SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50`
               : `SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20`,
             isAdmin ? [] : [userId]
-          );
-          const unreadCountResult: any = await query(
+          ) as any[];
+          
+          const unreadCountResult = await query(
             isAdmin
               ? `SELECT COUNT(*) as count FROM notifications WHERE is_read = 0`
               : `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0`,
             isAdmin ? [] : [userId]
-          );
+          ) as any[];
 
           send({
             unreadCount: unreadCountResult?.[0]?.count || 0,
@@ -44,16 +56,23 @@ export async function GET(req: NextRequest) {
             timestamp: new Date().toISOString(),
           });
         } catch (error: any) {
-          send({ error: "STREAM_ERROR", message: error.message });
+          if (!isControllerClosed) {
+            send({ error: "STREAM_ERROR", message: error.message });
+          }
         }
       };
 
       tick();
-      timer = setInterval(tick, 5000);
+      timer = setInterval(tick, 10000); // Increased interval to reduce load
 
       req.signal.addEventListener("abort", () => {
+        isControllerClosed = true;
         if (timer) clearInterval(timer);
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Already closed
+        }
       });
     },
   });

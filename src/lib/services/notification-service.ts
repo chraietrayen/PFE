@@ -1,9 +1,10 @@
 /**
  * Notification Service
- * Manages user notifications
+ * Manages user notifications with role-based access control
  */
 
 import { query } from "@/lib/mysql-direct";
+import { prisma } from "@/lib/prisma";
 import { emailService } from "@/lib/services/email-service";
 import { pushService } from "@/lib/services/push-service";
 import { NotificationType, NotificationPriority } from "@prisma/client";
@@ -15,23 +16,86 @@ interface CreateNotificationParams {
   message: string;
   metadata?: any;
   priority?: NotificationPriority;
+  targetRole?: 'USER' | 'RH' | 'SUPER_ADMIN'; // Role that should receive this notification
 }
 
+/**
+ * Notification types by role:
+ * 
+ * USER:
+ * - PROFILE_APPROVED, PROFILE_REJECTED, PROFILE_SUBMITTED
+ * - LEAVE_REQUEST (their own requests status updates)
+ * - POINTAGE_SUCCESS, POINTAGE_ANOMALY (their own pointages)
+ * 
+ * RH:
+ * - RH_ACTION_REQUIRED (profiles, leave requests needing approval)
+ * - LEAVE_REQUEST (all user requests)
+ * - POINTAGE_ANOMALY (all users anomalies)
+ * - POINTAGE_SUCCESS (optional: all users pointages)
+ * 
+ * ADMIN:
+ * - SYSTEM_ALERT
+ * - All RH notifications
+ * - Critical system events
+ */
+
 class NotificationService {
+  /**
+   * Get all RH users
+   */
+  async getRHUsers(): Promise<string[]> {
+    try {
+      const users = await prisma.user.findMany({
+        where: {
+          roleEnum: { in: ['RH', 'SUPER_ADMIN'] },
+          status: 'ACTIVE'
+        },
+        select: { id: true }
+      });
+      return users.map(u => u.id);
+    } catch (error) {
+      console.error("❌ Failed to get RH users:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all Admin users
+   */
+  async getAdminUsers(): Promise<string[]> {
+    try {
+      const users = await prisma.user.findMany({
+        where: {
+          roleEnum: 'SUPER_ADMIN',
+          status: 'ACTIVE'
+        },
+        select: { id: true }
+      });
+      return users.map(u => u.id);
+    } catch (error) {
+      console.error("❌ Failed to get admin users:", error);
+      return [];
+    }
+  }
   /**
    * Create a notification for a user
    */
   async create(params: CreateNotificationParams) {
     try {
       const id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const metadata = params.metadata ? JSON.stringify(params.metadata) : null;
+      const metadataObj = {
+        ...(params.metadata || {}),
+        targetRole: params.targetRole || 'USER'
+      };
+      const metadata = JSON.stringify(metadataObj);
       const priority = params.priority || "NORMAL";
       
       console.log(`📬 Creating notification for user ${params.userId}:`, {
         id,
         type: params.type,
         title: params.title,
-        priority
+        priority,
+        targetRole: params.targetRole
       });
       
       await query(
@@ -39,6 +103,33 @@ class NotificationService {
          VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())`,
         [id, params.userId, params.type, params.title, params.message, metadata, priority]
       );
+
+      const notification = {
+        id,
+        userId: params.userId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+        priority,
+        isRead: false,
+        createdAt: new Date(),
+        metadata: metadataObj
+      };
+
+      // ✅ Send real-time notification via SSE
+      try {
+        // Dynamic import to avoid circular dependencies
+        const realtimeModule = await import("@/app/api/notifications/realtime/route");
+        if (realtimeModule.sendNotificationToUser) {
+          const sent = realtimeModule.sendNotificationToUser(params.userId, notification);
+          if (sent) {
+            console.log(`✅ Real-time notification sent to user ${params.userId}`);
+          }
+        }
+      } catch (realtimeError) {
+        console.error("❌ Failed to send real-time notification:", realtimeError);
+        // Continue even if real-time fails
+      }
 
       // Send urgent email to RH/SUPER_ADMIN when priority is URGENT
       if (priority === "URGENT") {
@@ -65,7 +156,7 @@ class NotificationService {
       
       console.log(`✅ Notification created successfully:`, id);
       
-      return { id, ...params, isRead: false, createdAt: new Date(), updatedAt: new Date() };
+      return notification;
     } catch (error) {
       console.error("❌ Failed to create notification:", error);
       throw error;
@@ -73,7 +164,7 @@ class NotificationService {
   }
 
   /**
-   * Notify user of profile approval
+   * Notify user of profile approval (USER only)
    */
   async notifyProfileApproved(userId: string, approverName: string) {
     return await this.create({
@@ -82,11 +173,12 @@ class NotificationService {
       title: "Profil approuvé",
       message: `Votre profil a été approuvé par ${approverName}. Vous pouvez maintenant accéder à toutes les fonctionnalités.`,
       priority: "HIGH",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify user of profile rejection
+   * Notify user of profile rejection (USER only)
    */
   async notifyProfileRejected(userId: string, reason: string) {
     return await this.create({
@@ -95,11 +187,12 @@ class NotificationService {
       title: "Profil rejeté",
       message: `Votre profil a été rejeté. Raison: ${reason}. Veuillez modifier votre profil et le soumettre à nouveau.`,
       priority: "HIGH",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify RH of new pending employee
+   * Notify RH of new pending employee (RH only)
    */
   async notifyRHNewPending(rhUserIds: string[], employeeName: string) {
     const notifications = rhUserIds.map((userId) =>
@@ -109,6 +202,7 @@ class NotificationService {
         title: "Nouveau profil en attente",
         message: `Un nouveau profil employé nécessite votre validation: ${employeeName}`,
         priority: "NORMAL",
+        targetRole: 'RH'
       })
     );
     
@@ -116,7 +210,7 @@ class NotificationService {
   }
 
   /**
-   * Notify user of pointage anomaly
+   * Notify user of pointage anomaly (USER only)
    */
   async notifyPointageAnomaly(userId: string, anomalyType: string, description: string) {
     return await this.create({
@@ -126,11 +220,12 @@ class NotificationService {
       message: `Une anomalie a été détectée: ${description}`,
       metadata: { anomalyType },
       priority: "HIGH",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify user of successful pointage
+   * Notify user of successful pointage (USER only)
    */
   async notifyPointageSuccess(userId: string, pointageType: string) {
     return await this.create({
@@ -140,11 +235,12 @@ class NotificationService {
       message: `Votre ${pointageType} a été enregistré avec succès`,
       metadata: { pointageType },
       priority: "NORMAL",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify RH when user submits profile
+   * Notify RH when user submits profile (RH only)
    */
   async notifyRHProfileSubmitted(rhUserIds: string[], employeeName: string, userId: string) {
     const notifications = rhUserIds.map((rhId) =>
@@ -155,6 +251,7 @@ class NotificationService {
         message: `${employeeName} a soumis son profil pour validation`,
         metadata: { employeeUserId: userId, employeeName },
         priority: "HIGH",
+        targetRole: 'RH'
       })
     );
     
@@ -162,7 +259,7 @@ class NotificationService {
   }
 
   /**
-   * Notify user that profile was submitted
+   * Notify user that profile was submitted (USER only)
    */
   async notifyUserProfileSubmitted(userId: string) {
     return await this.create({
@@ -171,11 +268,12 @@ class NotificationService {
       title: "Profil soumis",
       message: "Votre profil a été soumis avec succès et est en attente de validation par le service RH",
       priority: "NORMAL",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify admin of important system events
+   * Notify admin of important system events (ADMIN only)
    */
   async notifyAdminSystemEvent(adminUserIds: string[], title: string, message: string, priority: NotificationPriority = "NORMAL") {
     const notifications = adminUserIds.map((adminId) =>
@@ -185,6 +283,7 @@ class NotificationService {
         title,
         message,
         priority,
+        targetRole: 'SUPER_ADMIN'
       })
     );
     
@@ -192,7 +291,7 @@ class NotificationService {
   }
 
   /**
-   * Notify RH when user submits leave request
+   * Notify RH when user submits leave request (RH only)
    */
   async notifyRHLeaveRequest(
     rhUserIds: string[],
@@ -218,7 +317,8 @@ class NotificationService {
         title: "Nouvelle demande de congé",
         message: `${userName} a demandé ${duration} jour(s) de congé (${leaveType}) à partir du ${startDate}`,
         priority: "NORMAL",
-        metadata: { userName, leaveType, duration, startDate, requestId }
+        metadata: { userName, leaveType, duration, startDate, requestId },
+        targetRole: 'RH'
       });
     });
     
@@ -228,7 +328,7 @@ class NotificationService {
   }
 
   /**
-   * Notify user when leave request is approved
+   * Notify user when leave request is approved (USER only)
    */
   async notifyLeaveRequestApproved(userId: string, leaveType: string, startDate: string, endDate: string) {
     return await this.create({
@@ -237,11 +337,12 @@ class NotificationService {
       title: "Demande de congé approuvée",
       message: `Votre demande de congé (${leaveType}) du ${startDate} au ${endDate} a été approuvée`,
       priority: "HIGH",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify user when leave request is rejected
+   * Notify user when leave request is rejected (USER only)
    */
   async notifyLeaveRequestRejected(userId: string, leaveType: string, reason?: string) {
     return await this.create({
@@ -250,11 +351,12 @@ class NotificationService {
       title: "Demande de congé rejetée",
       message: `Votre demande de congé (${leaveType}) a été rejetée${reason ? `. Raison: ${reason}` : ''}`,
       priority: "HIGH",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify user when leave request is submitted
+   * Notify user when leave request is submitted (USER only)
    */
   async notifyUserLeaveRequestSubmitted(userId: string, leaveType: string, duration: number) {
     return await this.create({
@@ -263,11 +365,12 @@ class NotificationService {
       title: "Demande de congé soumise",
       message: `Votre demande de ${duration} jour(s) de congé (${leaveType}) a été soumise avec succès et est en attente de validation`,
       priority: "NORMAL",
+      targetRole: 'USER'
     });
   }
 
   /**
-   * Notify RH when pointage anomaly is detected
+   * Notify RH when pointage anomaly is detected (RH only)
    */
   async notifyRHPointageAnomaly(rhUserIds: string[], userName: string, anomalyType: string, description: string) {
     console.log(`🚨 notifyRHPointageAnomaly called with:`, {
@@ -285,7 +388,8 @@ class NotificationService {
         title: "Anomalie de pointage détectée",
         message: `Anomalie détectée pour ${userName}: ${description}`,
         priority: "HIGH",
-        metadata: { userName, anomalyType, description }
+        metadata: { userName, anomalyType, description },
+        targetRole: 'RH'
       });
     });
     
@@ -295,9 +399,14 @@ class NotificationService {
   }
 
   /**
-   * Notify RH and Super Admins when a pointage is successful
+   * Notify RH and Super Admins when a pointage is successful (RH only - Optional)
+   * Note: This generates many notifications. Consider disabling for normal pointages.
    */
   async notifyRHPointageSuccess(rhUserIds: string[], userName: string, pointageType: string, timestamp: string) {
+    // Optional: Uncomment to disable routine pointage notifications for RH
+    // console.log('📝 Skipping routine pointage notification for RH');
+    // return [];
+    
     const notifications = rhUserIds.map((rhId) =>
       this.create({
         userId: rhId,
@@ -305,7 +414,8 @@ class NotificationService {
         title: "Pointage enregistré",
         message: `${userName} a effectué un ${pointageType} à ${timestamp}`,
         priority: "NORMAL",
-        metadata: { userName, pointageType, timestamp }
+        metadata: { userName, pointageType, timestamp },
+        targetRole: 'RH'
       })
     );
 
