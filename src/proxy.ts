@@ -24,7 +24,22 @@ function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 6000
 export default withAuth(
   function proxy(req) {
     const token = req.nextauth.token
-    const path = req.nextUrl.pathname
+    // ⛔ Autoriser les fichiers publics (obligatoire)
+const path = req.nextUrl.pathname
+
+if (
+  path === "/manifest.json" ||
+  path === "/favicon.ico" ||
+  path.startsWith("/_next") ||
+  path.endsWith(".png") ||
+  path.endsWith(".svg") ||
+  path.endsWith(".jpg") ||
+  path.endsWith(".css") ||
+  path.endsWith(".js")
+) {
+  return NextResponse.next()
+}
+
 
     // Get client IP for rate limiting
     const forwardedFor = req.headers.get('x-forwarded-for');
