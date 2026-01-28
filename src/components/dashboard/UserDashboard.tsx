@@ -47,10 +47,12 @@ export default function UserDashboard() {
           const totalDaysUsed = leaves
             .filter((l: any) => l.status === 'VALIDE')
             .reduce((sum: number, l: any) => {
+              if (!l.date_debut || !l.date_fin) return sum;
               const start = new Date(l.date_debut);
               const end = new Date(l.date_fin);
+              if (isNaN(start.getTime()) || isNaN(end.getTime())) return sum;
               const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-              return sum + days;
+              return sum + (isNaN(days) ? 0 : days);
             }, 0);
           
           const performance = Math.min(100, Math.round((approved / Math.max(1, approved + pending)) * 100));
@@ -58,8 +60,8 @@ export default function UserDashboard() {
           setStats({
             approvedLeaves: approved,
             pendingLeaves: pending,
-            totalDays: totalDaysUsed,
-            performance
+            totalDays: isNaN(totalDaysUsed) ? 0 : totalDaysUsed,
+            performance: isNaN(performance) ? 0 : performance
           });
         }
       } catch (error) {
@@ -171,7 +173,7 @@ export default function UserDashboard() {
                 </span>
               </div>
               <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Jours</h3>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.totalDays}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.totalDays || 0}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Jours de congé utilisés</p>
             </div>
           </div>

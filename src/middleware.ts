@@ -1,10 +1,45 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
+// In-memory rate limiting (basic implementation)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= limit) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token
     const path = req.nextUrl.pathname
+
+    // Get client IP for rate limiting
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0] : 'unknown';
+
+    // Rate limit check for API routes
+    if (path.startsWith('/api/')) {
+      const limit = path.includes('/auth/') ? 20 : 100;
+      if (!checkRateLimit(clientIp, limit)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Récupérer le statut de l'utilisateur
     const userStatus = token?.status as string
@@ -42,7 +77,13 @@ export default withAuth(
       return NextResponse.redirect(new URL("/home", req.url))
     }
 
-    return NextResponse.next()
+    // Add security headers to response
+    const response = NextResponse.next();
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+
+    return response
   },
   {
     callbacks: {
@@ -61,5 +102,9 @@ export const config = {
     "/dashboard/:path*",
     "/complete-profile/:path*",
     "/waiting-validation/:path*",
+    "/profile/:path*",
+    "/documents/:path*",
+    "/pointage/:path*",
+    "/conges/:path*",
   ],
 }

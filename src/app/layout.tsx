@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,37 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Santec AI",
-  description: "Santec AI Platform",
+  title: "Santec AI - Plateforme RH",
+  description: "Plateforme de gestion des ressources humaines avec pointage intelligent et reconnaissance faciale",
+  keywords: ["RH", "pointage", "gestion", "employés", "congés", "reconnaissance faciale"],
+  authors: [{ name: "Santec AI" }],
+  creator: "Santec AI",
+  publisher: "Santec AI",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title: "Santec AI - Plateforme RH",
+    description: "Plateforme de gestion des ressources humaines intelligente",
+    type: "website",
+    locale: "fr_FR",
+  },
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1f2937" },
+  ],
 };
 
 export default function RootLayout({
@@ -24,14 +54,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 dark:bg-gray-900 min-h-screen`}
         suppressHydrationWarning
       >
-        <NotificationProvider>
-          {children}
-        </NotificationProvider>
+        <QueryProvider>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </QueryProvider>
       </body>
     </html>
   );

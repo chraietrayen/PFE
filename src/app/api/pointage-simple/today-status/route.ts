@@ -17,27 +17,23 @@ export async function GET(req: NextRequest) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const checkIns: any = await query(
-      `SELECT id FROM Pointage 
-       WHERE user_id = ? 
-       AND type = 'IN' 
-       AND timestamp >= ? 
-       AND timestamp < ?`,
+    const checkInResult = await query(
+      `SELECT COUNT(*) as count FROM pointages 
+       WHERE user_id = ? AND type = 'IN' 
+       AND timestamp >= ? AND timestamp < ?`,
       [session.user.id, today, tomorrow]
-    );
+    ) as any[];
 
-    const checkOuts: any = await query(
-      `SELECT id FROM Pointage 
-       WHERE user_id = ? 
-       AND type = 'OUT' 
-       AND timestamp >= ? 
-       AND timestamp < ?`,
+    const checkOutResult = await query(
+      `SELECT COUNT(*) as count FROM pointages 
+       WHERE user_id = ? AND type = 'OUT' 
+       AND timestamp >= ? AND timestamp < ?`,
       [session.user.id, today, tomorrow]
-    );
+    ) as any[];
 
     return NextResponse.json({
-      hasCheckedIn: checkIns && checkIns.length > 0,
-      hasCheckedOut: checkOuts && checkOuts.length > 0
+      hasCheckedIn: (checkInResult[0]?.count || 0) > 0,
+      hasCheckedOut: (checkOutResult[0]?.count || 0) > 0
     });
   } catch (error: any) {
     console.error("Error checking today status:", error);
