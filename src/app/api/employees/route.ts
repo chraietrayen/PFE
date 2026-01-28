@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
     // Notify all RH users of new pending employee
     try {
       const rhUsers: any = await query(
-        `SELECT id, email, name FROM User WHERE role IN ('RH', 'SUPER_ADMIN')`
+        `SELECT id, email, name FROM User WHERE role_enum IN ('RH', 'SUPER_ADMIN')`
       );
       
       if (rhUsers && rhUsers.length > 0) {
