@@ -34,7 +34,7 @@ export async function PATCH(
     const leaveRequests: any = await query(
       `SELECT dc.*, u.name as user_name, u.email as user_email
        FROM demande_conge dc
-       JOIN User u ON dc.user_id = u.id
+       JOIN User u ON dc.userId = u.id
        WHERE dc.id = ?`,
       [requestId]
     );

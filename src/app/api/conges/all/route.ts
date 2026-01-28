@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const requests: any = await query(
       `SELECT dc.*, u.name as userName, u.email as userEmail 
        FROM demande_conge dc
-       JOIN User u ON dc.user_id = u.id
+       JOIN User u ON dc.userId = u.id
        ORDER BY dc.date_debut DESC`
     );
 
