@@ -115,7 +115,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+
       message: "Compte créé avec succès. Veuillez compléter votre profil.",
+
     })
 
   } catch (error: any) {
