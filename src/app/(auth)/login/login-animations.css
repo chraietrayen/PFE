@@ -1,0 +1,59 @@
+/* Animations pour la page de login */
+
+/* Floating particles animation */
+@keyframes particle-float {
+  0%, 100% { 
+    transform: translateY(0) translateX(0); 
+    opacity: 0.4;
+  }
+  25% { 
+    transform: translateY(-20px) translateX(10px); 
+    opacity: 0.6;
+  }
+  50% { 
+    transform: translateY(-10px) translateX(-10px); 
+    opacity: 0.4;
+  }
+  75% { 
+    transform: translateY(-30px) translateX(5px); 
+    opacity: 0.5;
+  }
+}
+
+.particle-float {
+  animation: particle-float 6s ease-in-out infinite;
+}
+
+/* Orbiting ring animation */
+@keyframes orbit-spin {
+  from { 
+    transform: rotate(0deg); 
+  }
+  to { 
+    transform: rotate(360deg); 
+  }
+}
+
+.orbit-ring {
+  animation: orbit-spin 20s linear infinite;
+}
+
+.orbit-ring-reverse {
+  animation: orbit-spin 30s linear infinite reverse;
+}
+
+/* Pulse animation enhancement */
+@keyframes gentle-pulse {
+  0%, 100% { 
+    opacity: 0.4; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: scale(1.05); 
+  }
+}
+
+.animate-pulse {
+  animation: gentle-pulse 8s ease-in-out infinite;
+}

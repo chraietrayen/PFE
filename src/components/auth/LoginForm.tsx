@@ -303,9 +303,7 @@ export function LoginForm() {
       {/* Header */}
       <div className="text-center">
         {/* Logo */}
-        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-violet-500/30">
-          <span className="text-white font-bold text-2xl">S</span>
-        </div>
+        
         <h1 className="text-3xl font-bold text-gray-900">
           Connexion
         </h1>
@@ -313,7 +311,7 @@ export function LoginForm() {
           Connectez-vous à votre compte
         </p>
         <p className="mt-1 text-sm text-violet-600 font-medium">
-          Bienvenue sur Santec RH
+          Bienvenue sur Santec AI
         </p>
       </div>
 

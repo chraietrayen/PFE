@@ -2,113 +2,143 @@ import { LoginForm } from "@/components/auth/LoginForm"
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import Image from "next/image"
+import "./login-animations.css"
 
 export default async function LoginPage() {
   const session = await getServerSession(authOptions)
-  
+
   if (session) {
     redirect("/")
   }
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden">
-      {/* Animated Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 lg:hidden">
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob" />
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-violet-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000" />
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000" />
+    <div className="min-h-screen flex relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-violet-50">
+      {/* ================= ANIMATED BACKGROUND (Global) ================= */}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Gradient Orbs - Version claire */}
+        <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-violet-300/40 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-1/4 -right-32 w-[500px] h-[500px] bg-purple-300/30 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-200/20 rounded-full blur-[150px]" />
+        
+        {/* Grid Pattern - Plus visible sur fond clair */}
+        <div 
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(139, 92, 246, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 92, 246, 0.15) 1px, transparent 1px)`,
+            backgroundSize: '60px 60px'
+          }}
+        />
+      </div>
+
+      {/* ================= LEFT SIDE ================= */}
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
+        {/* Glass Card Container - Version claire */}
+        <div className="absolute inset-8 rounded-3xl bg-gradient-to-br from-white/80 to-white/40 backdrop-blur-xl border border-white/60 shadow-2xl shadow-violet-200/50 overflow-hidden">
+          {/* Inner Glow - Version claire */}
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-100/50 via-transparent to-purple-100/30" />
+          
+          {/* Floating Particles - Couleurs adaptées */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-2 h-2 bg-violet-400/40 rounded-full particle-float"
+                style={{
+                  left: `${15 + i * 15}%`,
+                  top: `${20 + (i % 3) * 25}%`,
+                  animationDelay: `${i * 0.8}s`,
+                  animationDuration: `${4 + i * 0.5}s`
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="relative h-full flex flex-col p-10">
+            {/* Header Logo */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <span className="text-white font-bold text-lg">S</span>
+              </div>
+              <span className="text-slate-800 font-semibold text-lg tracking-wide">
+                Santec AI
+              </span>
+            </div>
+
+            {/* Center - Large Logo */}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="relative">
+                {/* Glow Effect Behind Logo - Version claire */}
+                <div className="absolute inset-0 bg-violet-300/30 blur-3xl scale-150 rounded-full" />
+                
+                {/* Logo Container */}
+                <div className="relative group">
+                  <div className="w-64 h-64 rounded-3xl bg-gradient-to-br from-white/90 to-white/60 backdrop-blur-sm border border-violet-200/50 flex items-center justify-center shadow-2xl shadow-violet-300/30 transition-all duration-500 group-hover:scale-105 group-hover:shadow-violet-400/40">
+                    <Image
+                      src="/logosantec.png"
+                      alt="Santec AI Logo"
+                      width={180}
+                      height={180}
+                      priority
+                      className="object-contain drop-shadow-xl"
+                    />
+                  </div>
+                  
+                  {/* Orbiting Ring - Couleurs adaptées */}
+                  <div className="absolute -inset-4 border border-violet-300/30 rounded-[2rem] orbit-ring" />
+                  <div className="absolute -inset-8 border border-dashed border-violet-200/20 rounded-[2.5rem] orbit-ring-reverse" />
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Text - Couleurs sombres pour lisibilité */}
+            <div className="space-y-2">
+              <h2 className="text-slate-700 text-2xl font-light">
+                Gérez vos <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-purple-600">ressources humaines</span>
+              </h2>
+              <p className="text-slate-500 text-sm">
+                Plateforme RH moderne et sécurisée
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Left Side - Violet (60%) */}
-      <div className="hidden lg:flex lg:w-[60%] bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Animated Blobs */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-blob" />
-          <div className="absolute top-0 -right-4 w-96 h-96 bg-violet-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-blob animation-delay-2000" />
-          <div className="absolute -bottom-8 left-20 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-blob animation-delay-4000" />
-          <div className="absolute bottom-20 right-20 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-6000" />
-        </div>
-
-        <div className="relative z-10">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
-              <span className="text-white font-bold text-2xl">S</span>
-            </div>
-            <span className="text-white text-xl font-semibold">Santec RH</span>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="space-y-8 relative z-10">
-          <div>
-            <h1 className="text-4xl font-bold text-white leading-tight">
-              Gérez vos ressources<br />humaines efficacement
-            </h1>
-            <p className="mt-4 text-violet-200 text-lg">
-              Votre plateforme RH moderne et sécurisée
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 transition-all hover:bg-white/15">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+      {/* ================= RIGHT SIDE ================= */}
+      <div className="w-full lg:w-[45%] flex items-center justify-center p-6 lg:p-12 relative z-10">
+        {/* Mobile Background - Supprimé le fond sombre */}
+        <div className="absolute inset-0 lg:hidden bg-gradient-to-br from-violet-100 via-purple-50 to-white" />
+        
+        {/* Form Card */}
+        <div className="relative w-full max-w-md">
+          {/* Card Glow - Version claire */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-300/30 to-purple-300/30 rounded-3xl blur-xl opacity-60" />
+          
+          {/* Card Content - Fond blanc cassé */}
+          <div className="relative bg-white/90 backdrop-blur-2xl rounded-2xl border border-violet-100/50 p-8 shadow-2xl shadow-slate-200/50">
+            {/* Mobile Logo (visible only on mobile) */}
+            <div className="lg:hidden flex flex-col items-center mb-8">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-500/25">
+                <Image
+                  src="/logosantec.png"
+                  alt="Santec AI Logo"
+                  width={50}
+                  height={50}
+                  priority
+                  className="object-contain"
+                />
               </div>
-              <span className="text-white font-medium">Pointage sécurisé avec vérification faciale</span>
+              <h1 className="text-slate-800 text-xl font-semibold">Santec AI</h1>
             </div>
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 transition-all hover:bg-white/15">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-white font-medium">Gestion des employés et des rôles</span>
-            </div>
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 transition-all hover:bg-white/15">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-white font-medium">Gestion des congés simplifiée</span>
-            </div>
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 transition-all hover:bg-white/15">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-white font-medium">Rapports et statistiques en temps réel</span>
-            </div>
+            
+            <LoginForm />
           </div>
-        </div>
-
-        {/* Illustration placeholder */}
-        <div className="flex justify-center relative z-10">
-          <div className="w-80 h-60 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
-            <svg className="w-32 h-32 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-violet-300 text-sm relative z-10">
-          © 2026 Santec RH. Tous droits réservés.
-        </div>
-      </div>
-
-      {/* Right Side - Form (40%) */}
-      <div className="w-full lg:w-[40%] flex items-center justify-center p-8 relative z-10">
-        {/* Glassmorphism Card for Mobile */}
-        <div className="w-full max-w-md lg:bg-transparent bg-white/90 backdrop-blur-xl lg:backdrop-blur-none rounded-2xl lg:rounded-none p-6 lg:p-0 shadow-2xl lg:shadow-none border border-white/20 lg:border-none">
-          <LoginForm />
+          
+          {/* Footer */}
+          <p className="text-center text-slate-400 text-xs mt-6">
+            © 2026 Santec AI. Tous droits réservés.
+          </p>
         </div>
       </div>
     </div>
