@@ -116,7 +116,7 @@ class RewardService {
 
     return {
       totalDays: rewards.length,
-      totalBonus: rewards.reduce((sum, r) => sum + r.salaryImpact, 0),
+      totalBonus: rewards.reduce((sum, r) => sum + (r.salaryImpact ?? 0), 0),
       records: rewards.map(r => this.toRecord(r)),
     };
   }
@@ -172,8 +172,9 @@ class RewardService {
     date: Date;
     reason: string;
     grantedById: string;
-    salaryImpact: number;
+    salaryImpact: number | null;
     status: string;
+    [key: string]: unknown;
   }): RewardRecord {
     return {
       id: reward.id,
@@ -181,7 +182,7 @@ class RewardService {
       date: reward.date,
       reason: reward.reason,
       grantedById: reward.grantedById,
-      salaryImpact: reward.salaryImpact,
+      salaryImpact: reward.salaryImpact ?? 0,
       status: reward.status as 'APPROVED' | 'REVOKED',
     };
   }

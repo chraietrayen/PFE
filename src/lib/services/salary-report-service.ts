@@ -184,13 +184,13 @@ class SalaryReportService {
       month,
       year,
       employeeCount: reports.length,
-      totalGross: round2(reports.reduce((s, r) => s + r.grossSalary, 0)),
-      totalNet: round2(reports.reduce((s, r) => s + r.netSalary, 0)),
-      totalDeductions: round2(reports.reduce((s, r) => s + r.deductions, 0)),
-      totalOvertime: round2(reports.reduce((s, r) => s + r.overtimePay, 0)),
-      totalRewards: round2(reports.reduce((s, r) => s + r.rewardBonus, 0)),
+      totalGross: round2(reports.reduce((s, r) => s + (r.grossSalary ?? 0), 0)),
+      totalNet: round2(reports.reduce((s, r) => s + (r.netSalary ?? 0), 0)),
+      totalDeductions: round2(reports.reduce((s, r) => s + (r.deductions ?? 0), 0)),
+      totalOvertime: round2(reports.reduce((s, r) => s + (r.overtimePay ?? 0), 0)),
+      totalRewards: round2(reports.reduce((s, r) => s + (r.rewardBonus ?? 0), 0)),
       averageSalary: reports.length > 0
-        ? round2(reports.reduce((s, r) => s + r.netSalary, 0) / reports.length)
+        ? round2(reports.reduce((s, r) => s + (r.netSalary ?? 0), 0) / reports.length)
         : 0,
       byStatus: {
         draft: reports.filter(r => r.status === 'DRAFT').length,

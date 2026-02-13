@@ -323,7 +323,7 @@ model DemandeConge {
   approvedById     String?                        @map("approved_by_id") @db.VarChar(36)
   approvedAt       DateTime?                      @map("approved_at") @db.DateTime(3)
   durationDays     Float?                         @map("duration_days") @db.Double
-  User             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], map: "demande_conge_userId_fkey")
   @@map("demande_conge")
@@ -603,6 +603,7 @@ enum demande_conge_type {
   MATERNITE
   MALADIE
   PREAVIS
+  REWARD
 }
 
 enum demande_conge_half_day_session {

@@ -190,11 +190,11 @@ class AnalyticsService {
     return {
       month,
       year,
-      totalPayroll: round2(reports.reduce((s, r) => s + r.netSalary, 0)),
-      averageSalary: round2(reports.reduce((s, r) => s + r.netSalary, 0) / reports.length),
-      totalDeductions: round2(reports.reduce((s, r) => s + r.deductions, 0)),
-      totalOvertime: round2(reports.reduce((s, r) => s + r.overtimePay, 0)),
-      totalRewardBonuses: round2(reports.reduce((s, r) => s + r.rewardBonus, 0)),
+      totalPayroll: round2(reports.reduce((s, r) => s + (r.netSalary ?? 0), 0)),
+      averageSalary: round2(reports.reduce((s, r) => s + (r.netSalary ?? 0), 0) / reports.length),
+      totalDeductions: round2(reports.reduce((s, r) => s + (r.deductions ?? 0), 0)),
+      totalOvertime: round2(reports.reduce((s, r) => s + (r.overtimePay ?? 0), 0)),
+      totalRewardBonuses: round2(reports.reduce((s, r) => s + (r.rewardBonus ?? 0), 0)),
       employeeCount: reports.length,
     };
   }
@@ -282,7 +282,7 @@ class AnalyticsService {
       include: {
         user: { select: { id: true, name: true, lastName: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { dateDebut: 'desc' },
       take: 20,
     });
 
@@ -337,7 +337,7 @@ class AnalyticsService {
         employeeId: r.userId,
         employeeName: `${r.user.name || ''} ${r.user.lastName || ''}`.trim(),
         baseSalary: r.baseSalary,
-        netSalary: r.netSalary,
+        netSalary: r.netSalary ?? 0,
         deductions: r.deductions,
         status: r.status,
       })),
@@ -345,7 +345,7 @@ class AnalyticsService {
         totalActiveEmployees,
         pendingLeaveCount: pendingLeaves.length,
         anomalyCount: anomalies.length,
-        totalPayroll: salaryReports.reduce((s, r) => s + r.netSalary, 0),
+        totalPayroll: salaryReports.reduce((s, r) => s + (r.netSalary ?? 0), 0),
       },
     };
   }
@@ -365,11 +365,11 @@ class AnalyticsService {
       const monthReports = allReports.filter(r => r.month === m);
       monthlyTrends.push({
         month: m,
-        totalPayroll: round2(monthReports.reduce((s, r) => s + r.netSalary, 0)),
-        totalDeductions: round2(monthReports.reduce((s, r) => s + r.deductions, 0)),
+        totalPayroll: round2(monthReports.reduce((s, r) => s + (r.netSalary ?? 0), 0)),
+        totalDeductions: round2(monthReports.reduce((s, r) => s + (r.deductions ?? 0), 0)),
         employeeCount: monthReports.length,
         averageSalary: monthReports.length > 0
-          ? round2(monthReports.reduce((s, r) => s + r.netSalary, 0) / monthReports.length)
+          ? round2(monthReports.reduce((s, r) => s + (r.netSalary ?? 0), 0) / monthReports.length)
           : 0,
       });
     }
@@ -389,8 +389,8 @@ class AnalyticsService {
       overview: {
         totalEmployees,
         totalLeaveRequests: totalLeaves,
-        yearlyPayroll: round2(allReports.reduce((s, r) => s + r.netSalary, 0)),
-        yearlyDeductions: round2(allReports.reduce((s, r) => s + r.deductions, 0)),
+        yearlyPayroll: round2(allReports.reduce((s, r) => s + (r.netSalary ?? 0), 0)),
+        yearlyDeductions: round2(allReports.reduce((s, r) => s + (r.deductions ?? 0), 0)),
       },
     };
   }

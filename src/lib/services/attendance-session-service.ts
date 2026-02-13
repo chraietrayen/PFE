@@ -438,8 +438,9 @@ class AttendanceSessionService {
     checkOut: Date | null;
     durationMinutes: number | null;
     status: string;
-    anomalyDetected: boolean;
+    anomalyDetected: boolean | null;
     anomalyReason: string | null;
+    [key: string]: unknown;
   }): AttendanceSessionRecord {
     return {
       id: session.id,
@@ -450,7 +451,7 @@ class AttendanceSessionService {
       checkOut: session.checkOut,
       durationMinutes: session.durationMinutes,
       status: session.status as AttendanceStatus,
-      anomalyDetected: session.anomalyDetected,
+      anomalyDetected: session.anomalyDetected ?? false,
       anomalyReason: session.anomalyReason,
     };
   }

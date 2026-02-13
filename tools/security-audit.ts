@@ -45,7 +45,7 @@ class SecurityAuditor {
 
     // Check for users without passwords (should use OAuth)
     const usersWithoutPassword = await prisma.user.count({
-      where: { password: null, accounts: { none: {} } },
+      where: { password: null },
     });
 
     checks.push({
@@ -61,7 +61,7 @@ class SecurityAuditor {
     // Check for INACTIVE admins
     const inactiveAdmins = await prisma.user.count({
       where: {
-        roleEnum: { in: ["SUPER_ADMIN", "RH"] },
+        role: { in: ["SUPER_ADMIN", "RH"] },
         status: { not: "ACTIVE" },
       },
     });
@@ -127,12 +127,12 @@ class SecurityAuditor {
 
     // Check role distribution
     const roleCounts = await prisma.user.groupBy({
-      by: ["roleEnum"],
+      by: ["role"],
       _count: true,
     });
 
-    const hasSuperAdmin = roleCounts.some((r) => r.roleEnum === "SUPER_ADMIN");
-    const hasRH = roleCounts.some((r) => r.roleEnum === "RH");
+    const hasSuperAdmin = roleCounts.some((r) => r.role === "SUPER_ADMIN");
+    const hasRH = roleCounts.some((r) => r.role === "RH");
 
     checks.push({
       name: "Admin roles present",
@@ -156,10 +156,10 @@ class SecurityAuditor {
     }> = [];
 
     // Check for unread notifications older than 30 days
-    const oldUnread = await prisma.notification.count({
+    const oldUnread = await prisma.notifications.count({
       where: {
-        isRead: false,
-        createdAt: {
+        is_read: false,
+        created_at: {
           lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         },
       },
@@ -189,9 +189,9 @@ class SecurityAuditor {
 
     // Check audit log coverage (last 24 hours)
     const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentLogs = await prisma.auditLog.count({
+    const recentLogs = await prisma.audit_logs.count({
       where: {
-        createdAt: { gte: last24h },
+        created_at: { gte: last24h },
       },
     });
 
@@ -203,10 +203,10 @@ class SecurityAuditor {
     });
 
     // Check for critical errors
-    const criticalErrors = await prisma.auditLog.count({
+    const criticalErrors = await prisma.audit_logs.count({
       where: {
         severity: "CRITICAL",
-        createdAt: { gte: last24h },
+        created_at: { gte: last24h },
       },
     });
 
@@ -233,7 +233,7 @@ class SecurityAuditor {
     }> = [];
 
     // Check for unresolved anomalies
-    const unresolvedAnomalies = await prisma.anomaly.count({
+    const unresolvedAnomalies = await prisma.anomalies.count({
       where: {
         status: { in: ["PENDING", "INVESTIGATING"] },
       },
@@ -250,7 +250,7 @@ class SecurityAuditor {
     });
 
     // Check for high/critical severity anomalies
-    const criticalAnomalies = await prisma.anomaly.count({
+    const criticalAnomalies = await prisma.anomalies.count({
       where: {
         severity: { in: ["HIGH", "CRITICAL"] },
         status: { in: ["PENDING", "INVESTIGATING"] },

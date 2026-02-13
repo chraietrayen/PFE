@@ -88,30 +88,33 @@ export async function hasPermission(
     
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      select: { id: true, role: true },
     });
 
     if (!user) return false;
 
     // SUPER_ADMIN has all permissions
-    if (user.roleEnum === "SUPER_ADMIN") return true;
+    if (user.role === "SUPER_ADMIN") return true;
+
+    // Look up the Role record matching the user's enum value
+    const roleName = user.role ?? "USER";
+    const role = await prisma.role.findUnique({
+      where: { name: roleName },
+      include: {
+        RolePermission: {
+          include: {
+            Permission: true,
+          },
+        },
+      },
+    });
 
     // Check role-based permissions
-    if (user.role?.rolePermissions) {
-      const hasModulePermission = user.role.rolePermissions.some(
+    if (role?.RolePermission) {
+      const hasModulePermission = role.RolePermission.some(
         (rp) =>
-          rp.permission.module.toLowerCase() === module.toLowerCase() &&
-          rp.permission.action === action
+          rp.Permission.module.toLowerCase() === module.toLowerCase() &&
+          rp.Permission.action === action
       );
       if (hasModulePermission) return true;
     }

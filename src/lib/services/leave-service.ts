@@ -90,12 +90,13 @@ class LeaveService {
 
     const leave = await prisma.demandeConge.create({
       data: {
+        id: crypto.randomUUID(),
         userId,
-        type,
+        type: type as any,
         dateDebut: startDate,
         dateFin: endDate,
         isHalfDay,
-        halfDaySession: halfDaySession || null,
+        halfDaySession: (halfDaySession || null) as any,
         status: 'EN_ATTENTE',
         commentaire: reason || null,
         impactOnSalary,
@@ -331,8 +332,9 @@ class LeaveService {
     userId: string;
     dateDebut: Date;
     dateFin: Date;
-    isHalfDay: boolean;
+    isHalfDay: boolean | null;
     halfDaySession: string | null;
+    [key: string]: unknown;
   }) {
     const start = new Date(leave.dateDebut);
     const end = new Date(leave.dateFin);
@@ -414,9 +416,10 @@ class LeaveService {
   }
 
   private calculateLeaveDuration(leave: {
-    isHalfDay: boolean;
+    isHalfDay: boolean | null;
     dateDebut: Date;
     dateFin: Date;
+    [key: string]: unknown;
   }): number {
     if (leave.isHalfDay) return 0.5;
     return this.countWorkDaysBetween(new Date(leave.dateDebut), new Date(leave.dateFin));
@@ -425,26 +428,27 @@ class LeaveService {
   private toLeaveRecord(leave: {
     id: string;
     userId: string;
-    type: string;
+    type: string | null;
     dateDebut: Date;
     dateFin: Date;
-    isHalfDay: boolean;
+    isHalfDay: boolean | null;
     halfDaySession: string | null;
     status: string;
-    impactOnSalary: boolean;
+    impactOnSalary: boolean | null;
     durationDays: number | null;
+    [key: string]: unknown;
   }): LeaveRecord {
     return {
       id: leave.id,
       userId: leave.userId,
-      type: leave.type as LeaveType,
+      type: (leave.type ?? 'PAID') as LeaveType,
       startDate: leave.dateDebut,
       endDate: leave.dateFin,
-      isHalfDay: leave.isHalfDay,
+      isHalfDay: leave.isHalfDay ?? false,
       halfDaySession: leave.halfDaySession as SessionType | null,
       status: leave.status as LeaveStatus,
-      impactOnSalary: leave.impactOnSalary,
-      durationDays: leave.durationDays ?? (leave.isHalfDay ? 0.5 : 0),
+      impactOnSalary: leave.impactOnSalary ?? false,
+      durationDays: leave.durationDays ?? ((leave.isHalfDay ?? false) ? 0.5 : 0),
     };
   }
 }
