@@ -1,212 +1,196 @@
 import { Adapter, AdapterUser, AdapterAccount, AdapterSession } from "next-auth/adapters"
-import { pool as getPool } from "./db"
+import prisma from "./prisma"
 import { v4 as uuid } from "uuid"
-
-// Helper to get pool with error handling
-function getDbPool() {
-  const p = getPool();
-  if (!p) {
-    throw new Error('Database not configured');
-  }
-  return p;
-}
 
 export function MySQLAdapter(): Adapter {
   return {
     async createUser(user: Omit<AdapterUser, "id">): Promise<AdapterUser & { role: string }> {
       const id: string = uuid()
-      const pool = getDbPool();
-      await pool.execute(
-      `INSERT INTO User (id, email, name, image, emailVerified, role) VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, user.email, user.name || null, user.image || null, user.emailVerified || null, "USER"]
-      )
+      const created = await prisma.user.create({
+        data: {
+          id,
+          email: user.email,
+          name: user.name || null,
+          image: user.image || null,
+          emailVerified: user.emailVerified || null,
+          role: "USER",
+        },
+      })
       return { ...user, id, role: "USER" } as AdapterUser & { role: string }
     },
 
     async getUser(id) {
-      const pool = getDbPool();
-      const [rows] = await pool.execute(`SELECT * FROM User WHERE id = ?`, [id])
-      const users = rows as any[]
-      if (users.length === 0) return null
+      const user = await prisma.user.findUnique({ where: { id } })
+      if (!user) return null
       return {
-        id: users[0]. id,
-        email: users[0].email,
-        name: users[0].name,
-        image: users[0].image,
-        emailVerified: users[0].emailVerified,
-        role: users[0].role,
-      } as AdapterUser & { role:  string }
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        emailVerified: user.emailVerified,
+        role: user.role || "USER",
+      } as AdapterUser & { role: string }
     },
 
     async getUserByEmail(email) {
-      const pool = getDbPool();
-      const [rows] = await pool.execute(`SELECT * FROM User WHERE email = ?`, [email])
-      const users = rows as any[]
-      if (users.length === 0) return null
+      const user = await prisma.user.findUnique({ where: { email } })
+      if (!user) return null
       return {
-        id: users[0].id,
-        email: users[0].email,
-        name: users[0].name,
-        image: users[0].image,
-        emailVerified: users[0].emailVerified,
-        role: users[0].role,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        emailVerified: user.emailVerified,
+        role: user.role || "USER",
       } as AdapterUser & { role: string }
     },
 
     async getUserByAccount({ provider, providerAccountId }) {
-      const pool = getDbPool();
-      const [rows] = await pool.execute(
-        `SELECT u.* FROM User u 
-         JOIN Account a ON u. id = a.userId 
-         WHERE a.provider = ? AND a.providerAccountId = ?`,
-        [provider, providerAccountId]
-      )
-      const users = rows as any[]
-      if (users.length === 0) return null
+      const account = await prisma.account.findFirst({
+        where: { provider, providerAccountId },
+      })
+      if (!account) return null
+      const user = await prisma.user.findUnique({ where: { id: account.userId } })
+      if (!user) return null
       return {
-        id: users[0].id,
-        email: users[0].email,
-        name: users[0].name,
-        image: users[0].image,
-        emailVerified: users[0].emailVerified,
-        role: users[0].role,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        emailVerified: user.emailVerified,
+        role: user.role || "USER",
       } as AdapterUser & { role: string }
     },
 
     async updateUser(user) {
-      const pool = getDbPool();
-      await pool.execute(
-        `UPDATE User SET name = ?, email = ?, image = ?, emailVerified = ?  WHERE id = ?`,
-        [user.name || null, user. email, user.image || null, user. emailVerified || null, user. id]
-      )
-      const [rows] = await pool.execute(`SELECT * FROM User WHERE id = ?`, [user.id])
-      const users = rows as any[]
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name: user.name || undefined,
+          email: user.email || undefined,
+          image: user.image || undefined,
+          emailVerified: user.emailVerified || undefined,
+        },
+      })
       return {
-        id: users[0].id,
-        email: users[0].email,
-        name: users[0].name,
-        image: users[0].image,
-        emailVerified: users[0].emailVerified,
-        role: users[0].role,
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        image: updated.image,
+        emailVerified: updated.emailVerified,
+        role: updated.role || "USER",
       } as AdapterUser & { role: string }
     },
 
     async deleteUser(id) {
-      const pool = getDbPool();
-      await pool.execute(`DELETE FROM User WHERE id = ?`, [id])
+      await prisma.user.delete({ where: { id } })
     },
 
-    // ✅ CORRIGÉ : Remplacer undefined par null
     async linkAccount(account: AdapterAccount): Promise<AdapterAccount> {
-      const id: string = uuid()
-      const pool = getDbPool();
-      await pool.execute(
-      `INSERT INTO Account (id, userId, type, provider, providerAccountId, refresh_token, access_token, expires_at, token_type, scope, id_token, session_state)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        account.userId,
-        account.type,
-        account.provider,
-        account.providerAccountId,
-        account.refresh_token || null,      // ✅ || null
-        account.access_token || null,       // ✅ || null
-        account.expires_at || null,         // ✅ || null
-        account.token_type || null,         // ✅ || null
-        account.scope || null,              // ✅ || null
-        account.id_token || null,           // ✅ || null
-        account.session_state || null,      // ✅ || null
-      ]
-      )
+      await prisma.account.create({
+        data: {
+          id: uuid(),
+          userId: account.userId,
+          type: account.type,
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+          refresh_token: account.refresh_token || null,
+          access_token: account.access_token || null,
+          expires_at: account.expires_at || null,
+          token_type: account.token_type || null,
+          scope: account.scope || null,
+          id_token: account.id_token || null,
+          session_state: (account.session_state as string) || null,
+        },
+      })
       return account as AdapterAccount
     },
 
     async unlinkAccount({ provider, providerAccountId }: { provider: string; providerAccountId: string }) {
-      const pool = getDbPool();
-      await pool.execute(
-        `DELETE FROM Account WHERE provider = ? AND providerAccountId = ?`,
-        [provider, providerAccountId]
-      )
+      const account = await prisma.account.findFirst({
+        where: { provider, providerAccountId },
+      })
+      if (account) {
+        await prisma.account.delete({ where: { id: account.id } })
+      }
     },
 
     async createSession(session) {
       const id = uuid()
-      const pool = getDbPool();
-      await pool.execute(
-        `INSERT INTO Session (id, sessionToken, userId, expires) VALUES (?, ?, ?, ?)`,
-        [id, session.sessionToken, session.userId, session.expires]
-      )
+      await prisma.session.create({
+        data: {
+          id,
+          sessionToken: session.sessionToken,
+          userId: session.userId,
+          expires: session.expires,
+        },
+      })
       return session as AdapterSession
     },
 
     async getSessionAndUser(sessionToken) {
-      const pool = getDbPool();
-      const [rows] = await pool.execute(
-        `SELECT s.*, u.* FROM Session s
-         JOIN User u ON s.userId = u.id
-         WHERE s.sessionToken = ?`,
-        [sessionToken]
-      )
-      const results = rows as any[]
-      if (results.length === 0) return null
+      const session = await prisma.session.findUnique({
+        where: { sessionToken },
+      })
+      if (!session) return null
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+      })
+      if (!user) return null
 
       return {
         session: {
-          sessionToken: results[0].sessionToken,
-          userId: results[0].userId,
-          expires: results[0].expires,
+          sessionToken: session.sessionToken,
+          userId: session.userId,
+          expires: session.expires,
         },
         user: {
-          id: results[0].userId,
-          email: results[0].email,
-          name: results[0].name,
-          image: results[0].image,
-          emailVerified: results[0].emailVerified,
-          role: results[0].role,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          emailVerified: user.emailVerified,
+          role: user.role || "USER",
         },
-      } as { session: AdapterSession; user:  AdapterUser & { role: string } }
+      } as { session: AdapterSession; user: AdapterUser & { role: string } }
     },
 
     async updateSession(session) {
-      const pool = getDbPool();
-      await pool.execute(
-        `UPDATE Session SET expires = ? WHERE sessionToken = ?`,
-        [session.expires, session.sessionToken]
-      )
+      await prisma.session.update({
+        where: { sessionToken: session.sessionToken },
+        data: { expires: session.expires },
+      })
       return session as AdapterSession
     },
 
     async deleteSession(sessionToken) {
-      const pool = getDbPool();
-      await pool.execute(`DELETE FROM Session WHERE sessionToken = ?`, [sessionToken])
+      await prisma.session.deleteMany({ where: { sessionToken } })
     },
 
     async createVerificationToken(token) {
-      const pool = getDbPool();
-      await pool.execute(
-        `INSERT INTO VerificationToken (identifier, token, expires) VALUES (?, ?, ?)`,
-        [token. identifier, token.token, token. expires]
-      )
+      await prisma.verificationToken.create({
+        data: {
+          identifier: token.identifier,
+          token: token.token,
+          expires: token.expires,
+        },
+      })
       return token
     },
 
     async useVerificationToken({ identifier, token }) {
-      const pool = getDbPool();
-      const [rows] = await pool.execute(
-        `SELECT * FROM VerificationToken WHERE identifier = ? AND token = ?`,
-        [identifier, token]
-      )
-      const tokens = rows as any[]
-      if (tokens.length === 0) return null
+      const existing = await prisma.verificationToken.findFirst({
+        where: { identifier, token },
+      })
+      if (!existing) return null
 
-      await pool.execute(
-        `DELETE FROM VerificationToken WHERE identifier = ? AND token = ?`,
-        [identifier, token]
-      )
+      await prisma.verificationToken.deleteMany({
+        where: { identifier, token },
+      })
       return {
-        identifier:  tokens[0].identifier,
-        token: tokens[0].token,
-        expires: tokens[0]. expires,
+        identifier: existing.identifier,
+        token: existing.token,
+        expires: existing.expires,
       }
     },
   }

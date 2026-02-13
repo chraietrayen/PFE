@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { query, execute } from "@/lib/mysql-direct"
+import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { isDevMode } from "@/lib/services/email-service"
 
@@ -13,14 +13,6 @@ const DEV_OTP_CODE = "000000" // Fixed OTP code for DEV mode
  * POST /api/auth/verify-otp
  * 
  * Verifies the OTP code entered by the user
- * 
- * DEV mode (OTP_DEV_MODE=true):
- * - Accepts "000000" as valid OTP without database check
- * - Allows easy testing during development
- * 
- * PROD mode (OTP_DEV_MODE=false):
- * - Verifies against hashed code in database
- * - Enforces expiration and attempt limits
  */
 export async function POST(request: Request) {
   try {
@@ -46,11 +38,10 @@ export async function POST(request: Request) {
       console.log("========================================");
 
       // Get user data for session
-      const users = await query(
-        `SELECT id, email, name, image, role, status FROM User WHERE email = ? LIMIT 1`,
-        [email]
-      ) as any[];
-      const user = users[0];
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, name: true, image: true, role: true, status: true },
+      })
 
       if (!user) {
         return NextResponse.json(
@@ -60,7 +51,7 @@ export async function POST(request: Request) {
       }
 
       // Clean up any existing OTPs for this email
-      await execute(`DELETE FROM otp_tokens WHERE email = ?`, [email])
+      await prisma.otp_tokens.deleteMany({ where: { email } })
 
       return NextResponse.json({
         success: true,
@@ -82,11 +73,13 @@ export async function POST(request: Request) {
     // ========================================
     
     // Find the OTP token
-    const otpTokens = await query(
-      `SELECT * FROM otp_tokens WHERE email = ? AND verified = 0 ORDER BY created_at DESC LIMIT 1`,
-      [email]
-    ) as any[];
-    const otpToken = otpTokens[0];
+    const otpToken = await prisma.otp_tokens.findFirst({
+      where: {
+        email,
+        verified: false,
+      },
+      orderBy: { created_at: "desc" },
+    })
 
     if (!otpToken) {
       return NextResponse.json(
@@ -97,7 +90,7 @@ export async function POST(request: Request) {
 
     // Check if expired
     if (new Date() > new Date(otpToken.expires)) {
-      await execute(`DELETE FROM otp_tokens WHERE id = ?`, [otpToken.id])
+      await prisma.otp_tokens.delete({ where: { id: otpToken.id } })
       return NextResponse.json(
         { error: "Code OTP expiré. Veuillez en demander un nouveau." },
         { status: 400 }
@@ -105,8 +98,8 @@ export async function POST(request: Request) {
     }
 
     // Check max attempts
-    if (otpToken.attempts >= MAX_ATTEMPTS) {
-      await execute(`DELETE FROM otp_tokens WHERE id = ?`, [otpToken.id])
+    if ((otpToken.attempts ?? 0) >= MAX_ATTEMPTS) {
+      await prisma.otp_tokens.delete({ where: { id: otpToken.id } })
       return NextResponse.json(
         { error: "Trop de tentatives. Veuillez demander un nouveau code." },
         { status: 400 }
@@ -118,12 +111,12 @@ export async function POST(request: Request) {
 
     if (!isValid) {
       // Increment attempts
-      await execute(
-        `UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?`,
-        [otpToken.id]
-      )
+      await prisma.otp_tokens.update({
+        where: { id: otpToken.id },
+        data: { attempts: { increment: 1 } },
+      })
 
-      const remainingAttempts = MAX_ATTEMPTS - otpToken.attempts - 1
+      const remainingAttempts = MAX_ATTEMPTS - (otpToken.attempts ?? 0) - 1
 
       return NextResponse.json(
         {
@@ -139,17 +132,16 @@ export async function POST(request: Request) {
     // ========================================
     
     // Mark as verified
-    await execute(
-      `UPDATE otp_tokens SET verified = 1 WHERE id = ?`,
-      [otpToken.id]
-    )
+    await prisma.otp_tokens.update({
+      where: { id: otpToken.id },
+      data: { verified: true },
+    })
 
     // Get user data for session
-    const users = await query(
-      `SELECT id, email, name, image, role, status FROM User WHERE email = ? LIMIT 1`,
-      [email]
-    ) as any[];
-    const user = users[0];
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, name: true, image: true, role: true, status: true },
+    })
 
     if (!user) {
       return NextResponse.json(
@@ -159,8 +151,7 @@ export async function POST(request: Request) {
     }
 
     // Clean up old OTPs for this email
-    await execute(`DELETE FROM otp_tokens WHERE email = ? AND verified = 1`, [email])
-
+    await prisma.otp_tokens.deleteMany({ where: { email, verified: true } })
     return NextResponse.json({
       success: true,
       verified: true,

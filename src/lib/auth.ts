@@ -3,24 +3,10 @@ import type { Provider } from "next-auth/providers/index"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { MySQLAdapter } from "./auth-adapter"
-import { pool as getPool } from "./db"
+import prisma from "./prisma"
 import bcrypt from "bcryptjs"
 import { loginHistoryService } from "./services/login-history-service"
 import { emailService } from "./services/email-service"
-
-// Helper to get pool with error handling - returns null if not configured
-function getDbPool() {
-  const p = getPool();
-  if (!p) {
-    return null;
-  }
-  return p;
-}
-
-// Helper to check if database is available
-function hasDbConnection(): boolean {
-  return getDbPool() !== null;
-}
 
 // Build providers array conditionally
 function buildProviders(): Provider[] {
@@ -66,22 +52,13 @@ export const authOptions: NextAuthOptions = {
           req?.headers?.["x-real-ip"] as string || 
           "Unknown"
 
-        const pool = getDbPool();
-        if (!pool) {
-          throw new Error("Base de données non configurée")
-        }
-        
-        const [rows] = await pool.execute(
-          `SELECT * FROM User WHERE email = ?`,
-          [credentials.email]
-        )
-        const users = rows as any[]
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        })
 
-        if (users.length === 0) {
+        if (!user) {
           throw new Error("Utilisateur non trouvé")
         }
-
-        const user = users[0]
 
         if (!user.password) {
           throw new Error("Utilisez la connexion Google")
@@ -124,7 +101,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
-          role: user.roleEnum || user.role,
+          role: user.role || "USER",
           status: user.status || "INACTIVE",
         }
       },
@@ -170,35 +147,28 @@ export const authOptions: NextAuthOptions = {
       }
       
       // Only query database if it's available
-      const dbPool = getDbPool();
-      if (!dbPool) {
-        return token;
-      }
-      
       try {
         // ✅ Si c'est une connexion Google, récupérer le rôle et le statut depuis la DB
         if (account?.provider === "google" && user?.email) {
-          const [rows] = await dbPool.execute(
-            `SELECT role, status FROM User WHERE email = ?`,
-            [user.email]
-          )
-          const users = rows as any[]
-          if (users.length > 0) {
-            token.role = users[0].role
-            token.status = users[0].status || "INACTIVE"
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { role: true, status: true },
+          })
+          if (dbUser) {
+            token.role = dbUser.role || "USER"
+            token.status = dbUser.status || "INACTIVE"
           }
         }
 
         // Toujours récupérer le rôle et le statut les plus récents depuis la DB
         if (token.email) {
-          const [rows] = await dbPool.execute(
-            `SELECT role, status FROM User WHERE email = ?`,
-            [token.email]
-          )
-          const users = rows as any[]
-          if (users.length > 0) {
-            token.role = users[0].role
-            token.status = users[0].status
+          const dbUser = await prisma.user.findUnique({
+            where: { email: token.email as string },
+            select: { role: true, status: true },
+          })
+          if (dbUser) {
+            token.role = dbUser.role || "USER"
+            token.status = dbUser.status
           }
         }
       } catch (error) {
