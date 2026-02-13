@@ -14,6 +14,12 @@
     "db:seed": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
+    "prisma:local": "dotenv -e .env.local -- prisma",
+    "migrate:local": "dotenv -e .env.local -- prisma migrate dev",
+    "migrate:create": "dotenv -e .env.local -- prisma migrate dev --create-only",
+    "studio:local": "dotenv -e .env.local -- prisma studio",
+    "generate:local": "dotenv -e .env.local -- prisma generate",
+    "db:push:local": "dotenv -e .env.local -- prisma db push",
     "vercel-build": "prisma generate && next build"
   },
   "prisma": {
@@ -53,6 +59,7 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "@types/web-push": "^3.6.4",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "tailwindcss": "^4",

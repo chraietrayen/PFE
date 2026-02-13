@@ -11,6 +11,7 @@ const query = async (sql: string, params?: any[]) => {
 import StatsCard from './cards/StatsCard';
 import EmployeeList from '@/components/employees/EmployeeList';
 import RecentActivities from './RecentActivities';
+import AdminAnalytics from './AdminAnalytics';
 import { Users, UserCheck, Shield, Activity, AlertTriangle } from 'lucide-react';
 
 interface DashboardStats {
@@ -169,6 +170,9 @@ export default async function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Payroll Analytics */}
+      <AdminAnalytics />
 
       {/* Recent Activities */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">

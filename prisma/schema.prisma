@@ -7,190 +7,626 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========== NEXTAUTH TABLES ==========
 model Account {
-  id                String  @id @default(cuid())
-  userId            String  @map("user_id")
-  type              String
-  provider          String
-  providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  id                String    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  userId            String    @db.VarChar(36)
+  type              String    @db.VarChar(255)
+  provider          String    @db.VarChar(255)
+  providerAccountId String    @db.VarChar(255)
+  refresh_token     String?   @db.Text
+  access_token      String?   @db.Text
   expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+  token_type        String?   @db.VarChar(255)
+  scope             String?   @db.VarChar(255)
+  id_token          String?   @db.Text
+  session_state     String?   @db.VarChar(255)
+  createdAt         DateTime? @default(now()) @db.DateTime(0)
+  updatedAt         DateTime? @default(now()) @db.DateTime(0)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
+  @@unique([provider, providerAccountId], map: "provider_providerAccountId")
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("session_token")
-  userId       String   @map("user_id")
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
+model Attendance {
+  id         String             @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  employeeId String             @db.VarChar(36)
+  date       DateTime           @db.Date
+  checkIn    DateTime?          @db.DateTime(0)
+  checkOut   DateTime?          @db.DateTime(0)
+  status     Attendance_status? @default(PRESENT)
+  notes      String?            @db.Text
+  createdAt  DateTime?          @default(now()) @db.DateTime(0)
+  updatedAt  DateTime?          @default(now()) @db.DateTime(0)
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
+model ChatMessage {
+  id        String                 @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  userId    String                 @db.VarChar(36)
+  message   String                 @db.Text
+  response  String?                @db.Text
+  sentiment ChatMessage_sentiment?
+  createdAt DateTime?              @default(now()) @db.DateTime(0)
 }
 
-// ========== USERS/EMPLOYES ==========
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Employe {
+  id                 String                @id @db.VarChar(36)
+  user_id            String                @unique(map: "user_id") @db.VarChar(36)
+  nom                String?               @db.VarChar(255)
+  prenom             String?               @db.VarChar(255)
+  email              String?               @db.VarChar(255)
+  birthday           DateTime?             @db.Date
+  sexe               Employe_sexe?
+  rib                String?               @db.VarChar(24)
+  adresse            String?               @db.VarChar(500)
+  telephone          String?               @db.VarChar(50)
+  date_embauche      DateTime?             @db.Date
+  photo              String?               @db.MediumText
+  cv                 String?               @db.MediumText
+  autres_documents   String?               @db.LongText
+  type_contrat       Employe_type_contrat?
+  created_at         DateTime?             @default(now()) @db.DateTime(0)
+  updated_at         DateTime?             @default(now()) @db.DateTime(0)
+  rejection_reason   String?               @db.Text
+  approved_by        String?
+  approved_at        DateTime?
+  status             Employe_status?       @default(EN_ATTENTE)
+  contract_file      String?               @db.MediumText
+  contract_signature String?               @db.MediumText
+  contract_signed_at DateTime?             @db.DateTime(0)
+  base_salary        Float?                @db.Double
+  hourly_rate        Float?                @db.Double
+  annual_leave       Int?                  @default(26)
+  User               User                  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_employe_user")
+  rh_decisions       rh_decisions[]
 
-model User {
-  id            String      @id @default(cuid())
-  cin           String?     @unique                // Optionnel: le CIN RH (peut être nul pour admin technique)
-  name          String?
-  lastName      String?     @map("last_name")
-  email         String      @unique
-  emailVerified DateTime?   @map("email_verified")
-  password      String?
-  image         String?     @db.LongText           // url photo (Google) or base64 for uploaded photos
-  sexe          Sexe?
-  rib           String?     @db.VarChar(24)
-  adresse       String?
-  telephone     String?
-  dateEmbauche  DateTime?   @map("date_embauche")
-  typeContrat   ContratType?@map("type_contrat")
-  roleEnum      Role        @default(USER)            // rôle simplifié pour NextAuth
-  role          RoleEntity? @relation(fields: [roleId], references: [id])
-  roleId        String?
-  status        UserStatus  @default(INACTIVE)        // Status for user lifecycle
-  isActive      Boolean     @default(true) @map("is_active")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
-
-  accounts        Account[]
-  sessions        Session[]
-  employee        Employe?                              // relation one-to-one avec Employe
-  dossiers        DossierEmploye[]
-  demandesConge   DemandeConge[]
-  pointages       Pointage[]
-  auditLogs       AuditLog[]
-  notifications   Notification[]
-  rhDecisions     RHDecision[]     @relation("RHDecider")
-  deviceFingerprints DeviceFingerprint[]
-  cookieConsents  CookieConsent[]
-  userSessions    UserSession[]
-  loginHistory    LoginHistory[]
-  preferences     UserPreferences?
-  rhFavorites     RHFavorite[]     @relation("RHFavoritesByUser")
-  documents       Document[]
-  contracts       Contract[]
-
-  @@map("User")
+  @@index([user_id], map: "idx_user_id")
 }
 
-// Enums RH
-enum Sexe {
-  HOMME
-  FEMME
-}
-enum ContratType {
-  CDI
-  CDD
-  Stage
-  Freelance
-}
-enum Role {
-  SUPER_ADMIN
-  RH
-  USER
-}
-enum UserStatus {
-  INACTIVE      // Registered but profile not completed
-  PENDING       // Profile completed, waiting for RH validation
-  ACTIVE        // Approved by RH, full access
-  REJECTED      // Rejected by RH
-  SUSPENDED     // Temporarily suspended
-}
+model LeaveRequest {
+  id         String               @id
+  user_id    String
+  type       LeaveRequest_type
+  start_date DateTime             @db.Date
+  end_date   DateTime             @db.Date
+  duration   Int
+  reason     String               @db.Text
+  status     LeaveRequest_status? @default(PENDING)
+  decided_by String?
+  decided_at DateTime?            @db.DateTime(0)
+  comments   String?              @db.Text
+  created_at DateTime?            @default(now()) @db.DateTime(0)
+  updated_at DateTime?            @default(now()) @db.DateTime(0)
 
-// ========== PASSWORD RESET ==========
-model PasswordResetToken {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  expires   DateTime
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@unique([email, token])
-  @@map("password_reset_tokens")
-}
-
-// ========== OTP VERIFICATION ==========
-model OTPToken {
-  id        String   @id @default(cuid())
-  email     String
-  code      String   // 6-digit OTP code (hashed)
-  expires   DateTime
-  verified  Boolean  @default(false)
-  attempts  Int      @default(0) // Track failed attempts
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@unique([email, code])
-  @@index([email])
-  @@map("otp_tokens")
-}
-
-// ========== ROLE & PERMISSIONS ==========
-model RoleEntity {
-  id              String           @id @default(cuid())
-  name            String           @unique
-  description     String?
-  users           User[]
-  rolePermissions RolePermission[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("roles")
+  @@index([start_date, end_date], map: "idx_dates")
+  @@index([status], map: "idx_status")
+  @@index([user_id, status], map: "idx_user_status")
 }
 
 model Permission {
-  id     String           @id @default(cuid())
-  module String // (ex: RH, Paramètres, Chatbot, ...)
-  type   PermissionType
-  action PermissionAction
+  id             String            @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  module         String            @db.VarChar(50)
+  type           Permission_type
+  action         Permission_action
+  createdAt      DateTime?         @default(now()) @db.DateTime(0)
+  updatedAt      DateTime?         @default(now()) @db.DateTime(0)
+  RolePermission RolePermission[]
+}
 
-  rolePermissions RolePermission[]
+model Pointage {
+  id                 String           @id
+  user_id            String
+  type               Pointage_type
+  timestamp          DateTime         @default(now()) @db.DateTime(0)
+  status             Pointage_status? @default(VALID)
+  check_in_id        String?
+  device_fingerprint String?          @db.Text
+  ip_address         String?          @db.VarChar(100)
+  geolocation        Json?
+  captured_photo     String?          @db.LongText
+  face_verified      Boolean?         @default(false)
+  verification_score Int?
+  hours_worked       Decimal?         @db.Decimal(5, 2)
+  anomaly_detected   Boolean?         @default(false)
+  anomaly_reason     String?          @db.Text
+  created_at         DateTime?        @default(now()) @db.DateTime(0)
+  updated_at         DateTime?        @default(now()) @db.DateTime(0)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([check_in_id], map: "idx_check_in")
+  @@index([status], map: "idx_status")
+  @@index([type], map: "idx_type")
+  @@index([user_id, timestamp], map: "idx_user_timestamp")
+}
 
-  @@map("permissions")
+model Role {
+  id             String           @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  name           String           @unique(map: "name") @db.VarChar(50)
+  description    String?          @db.Text
+  createdAt      DateTime?        @default(now()) @db.DateTime(0)
+  updatedAt      DateTime?        @default(now()) @db.DateTime(0)
+  RolePermission RolePermission[]
 }
 
 model RolePermission {
-  id           String @id @default(cuid())
-  roleId       String
-  permissionId String
+  id           String     @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  roleId       String     @db.VarChar(36)
+  permissionId String     @db.VarChar(36)
+  createdAt    DateTime?  @default(now()) @db.DateTime(0)
+  Role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "RolePermission_ibfk_1")
+  Permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "RolePermission_ibfk_2")
 
-  role       RoleEntity @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([roleId, permissionId])
-  @@map("role_permissions")
+  @@unique([roleId, permissionId], map: "role_permission_unique")
+  @@index([permissionId], map: "permissionId")
 }
 
-enum PermissionType {
+model Session {
+  id           String    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  sessionToken String    @unique(map: "sessionToken") @db.VarChar(255)
+  userId       String    @db.VarChar(36)
+  expires      DateTime  @db.DateTime(0)
+  createdAt    DateTime? @default(now()) @db.DateTime(0)
+  updatedAt    DateTime? @default(now()) @db.DateTime(0)
+}
+
+model User {
+  id                       String                @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  email                    String                @unique(map: "email") @db.VarChar(255)
+  name                     String?               @db.VarChar(255)
+  password                 String?               @db.VarChar(255)
+  role                     User_role?            @default(USER)
+  image                    String?               @db.VarChar(500)
+  emailVerified            DateTime?             @db.DateTime(0)
+  createdAt                DateTime?             @default(now()) @db.DateTime(0)
+  updatedAt                DateTime?             @default(now()) @db.DateTime(0)
+  status                   User_status           @default(INACTIVE)
+  Employe                  Employe?
+  UserPreferences          UserPreferences?
+  audit_logs               audit_logs[]
+  cookie_consents          cookie_consents[]
+  demande_conge            demande_conge[]
+  device_fingerprints      device_fingerprints[]
+  dossier_employe          dossier_employe[]
+  notifications            notifications[]
+  rh_decisions             rh_decisions[]
+  attendance_sessions      attendance_sessions[]
+  reward_days_user         reward_days[]         @relation("reward_days_user")
+  reward_days_granted_by   reward_days[]         @relation("reward_days_granted_by")
+  salary_reports_user      salary_reports[]      @relation("salary_reports_user")
+  salary_reports_reviewer  salary_reports[]      @relation("salary_reports_reviewer")
+  salary_reports_approver  salary_reports[]      @relation("salary_reports_approver")
+}
+
+model UserPreferences {
+  id                 String    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  userId             String    @unique(map: "userId") @db.VarChar(36)
+  language           String?   @default("fr") @db.VarChar(10)
+  emailNotifications Boolean?  @default(true)
+  pushNotifications  Boolean?  @default(true)
+  soundAlerts        Boolean?  @default(true)
+  theme              String?   @default("system") @db.VarChar(20)
+  timezone           String?   @default("Europe/Paris") @db.VarChar(100)
+  createdAt          DateTime? @default(now()) @db.DateTime(0)
+  updatedAt          DateTime? @default(now()) @db.DateTime(0)
+  User               User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "UserPreferences_ibfk_1")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique(map: "token") @db.VarChar(255)
+  expires    DateTime @db.DateTime(0)
+
+  @@id([identifier, token])
+}
+
+model anomalies {
+  id          String             @id
+  type        anomalies_type
+  severity    anomalies_severity
+  entity_type String
+  entity_id   String
+  pointage_id String?
+  description String             @db.Text
+  metadata    String?            @db.LongText
+  status      anomalies_status   @default(PENDING)
+  resolved_by String?            @db.VarChar(36)
+  resolved_at DateTime?
+  resolution  String?            @db.Text
+  created_at  DateTime           @default(now())
+
+  @@index([created_at])
+  @@index([pointage_id], map: "anomalies_pointage_id_fkey")
+  @@index([severity, status])
+  @@index([type, status])
+}
+
+model audit_logs {
+  id          String              @id
+  user_id     String?             @db.VarChar(36)
+  action      String
+  entity_type String
+  entity_id   String?
+  changes     String?             @db.LongText
+  ip_address  String?
+  user_agent  String?             @db.Text
+  metadata    String?             @db.LongText
+  severity    audit_logs_severity @default(INFO)
+  created_at  DateTime            @default(now())
+  User        User?               @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+}
+
+model contracts {
+  id                String           @id @db.VarChar(36)
+  title             String           @db.VarChar(255)
+  description       String?          @db.Text
+  type              contracts_type
+  status            contracts_status @default(DRAFT)
+  original_pdf_path String           @db.Text
+  signed_pdf_path   String?          @db.Text
+  signature_data    String?          @db.LongText
+  user_id           String
+  created_by        String?          @db.VarChar(36)
+  valid_from        DateTime?
+  sent_at           DateTime?        @db.DateTime(0)
+  viewed_at         DateTime?
+  archived_at       DateTime?
+  signed_at         DateTime?        @db.DateTime(0)
+  signed_ip_address String?
+  signed_user_agent String?          @db.Text
+  valid_until       DateTime?
+  version           Int?             @default(1)
+  signature_zone    String?          @db.Text
+  parent_id         String?
+  metadata          Json?
+  created_at        DateTime?        @default(now()) @db.DateTime(0)
+  updated_at        DateTime?        @default(now()) @db.DateTime(0)
+
+  @@index([created_by], map: "idx_contracts_created_by")
+  @@index([user_id], map: "idx_contracts_employee")
+  @@index([status], map: "idx_contracts_status")
+}
+
+model cookie_consents {
+  id              String    @id @db.VarChar(36)
+  session_id      String?   @db.VarChar(36)
+  user_id         String?   @db.VarChar(36)
+  necessary       Boolean?  @default(true)
+  functional      Boolean?  @default(false)
+  analytics       Boolean?  @default(false)
+  marketing       Boolean?  @default(false)
+  consent_version String?   @default("1.0") @db.VarChar(10)
+  consent_method  String?   @default("banner") @db.VarChar(50)
+  ip_address      String?   @db.VarChar(45)
+  user_agent      String?   @db.Text
+  created_at      DateTime? @default(now()) @db.DateTime(0)
+  updated_at      DateTime? @default(now()) @db.DateTime(0)
+  User            User?     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "cookie_consents_ibfk_1")
+
+  @@index([created_at], map: "idx_created_at")
+  @@index([session_id], map: "idx_session_id")
+  @@index([user_id], map: "idx_user_id")
+}
+
+model demande_conge {
+  id               String                         @id
+  userId           String                         @db.VarChar(36)
+  type             demande_conge_type?
+  date_debut       DateTime
+  date_fin         DateTime
+  status           demande_conge_status           @default(EN_ATTENTE)
+  commentaire      String?
+  is_half_day      Boolean?                       @default(false)
+  half_day_session demande_conge_half_day_session?
+  impact_on_salary Boolean?                       @default(true)
+  approved_by_id   String?                        @db.VarChar(36)
+  approved_at      DateTime?                      @db.DateTime(3)
+  duration_days    Float?                         @db.Double
+  User             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "demande_conge_userId_fkey")
+}
+
+model device_fingerprints {
+  id                String   @id
+  user_id           String   @db.VarChar(36)
+  fingerprint       String   @db.Text
+  user_agent        String   @db.Text
+  platform          String?
+  browser           String?
+  screen_resolution String?
+  timezone          String?
+  language          String?
+  first_seen        DateTime @default(now())
+  last_seen         DateTime @default(now())
+  is_trusted        Boolean  @default(false)
+  User              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model attendance_sessions {
+  id                  String                        @id @default(dbgenerated("(uuid())")) @db.VarChar(191)
+  user_id             String                        @db.VarChar(36)
+  date                DateTime                      @db.Date
+  session_type        attendance_sessions_session_type
+  check_in_time       DateTime?                     @db.DateTime(3)
+  check_out_time      DateTime?                     @db.DateTime(3)
+  duration_minutes    Int?
+  status              attendance_sessions_status    @default(PRESENT)
+  check_in_photo      String?                       @db.LongText
+  check_out_photo     String?                       @db.LongText
+  check_in_ip         String?                       @db.VarChar(45)
+  check_out_ip        String?                       @db.VarChar(45)
+  device_fingerprint  String?                       @db.Text
+  anomaly_detected    Boolean?                      @default(false)
+  anomaly_reason      String?                       @db.Text
+  created_at          DateTime                      @default(now()) @db.DateTime(3)
+  updated_at          DateTime                      @default(now()) @db.DateTime(3)
+  User                User                          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([date])
+  @@unique([user_id, date, session_type])
+}
+
+model reward_days {
+  id              String             @id @default(dbgenerated("(uuid())")) @db.VarChar(191)
+  user_id         String             @db.VarChar(36)
+  granted_by_id   String             @db.VarChar(36)
+  date            DateTime           @db.Date
+  reason          String             @db.Text
+  status          reward_days_status @default(APPROVED)
+  salary_impact   Float?             @db.Double
+  created_at      DateTime           @default(now()) @db.DateTime(3)
+  updated_at      DateTime           @default(now()) @db.DateTime(3)
+  User            User               @relation("reward_days_user", fields: [user_id], references: [id], onDelete: Cascade)
+  GrantedBy       User               @relation("reward_days_granted_by", fields: [granted_by_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([date])
+}
+
+model salary_reports {
+  id                       String                 @id @default(dbgenerated("(uuid())")) @db.VarChar(191)
+  user_id                  String                 @db.VarChar(36)
+  month                    Int
+  year                     Int
+  contract_type            String?                @db.VarChar(50)
+  base_salary              Float?                 @db.Double
+  hourly_rate              Float?                 @db.Double
+  worked_days              Float?                 @db.Double
+  expected_work_days       Float?                 @db.Double
+  worked_hours             Float?                 @db.Double
+  expected_work_hours      Float?                 @db.Double
+  absence_days             Float?                 @db.Double
+  absence_hours            Float?                 @db.Double
+  unpaid_absence_days      Float?                 @db.Double
+  paid_leave_days          Float?                 @db.Double
+  unpaid_leave_days        Float?                 @db.Double
+  sick_leave_days          Float?                 @db.Double
+  other_leave_days         Float?                 @db.Double
+  reward_days              Float?                 @db.Double
+  reward_salary            Float?                 @db.Double
+  overtime_hours           Float?                 @db.Double
+  overtime_rate            Float?                 @db.Double
+  overtime_salary          Float?                 @db.Double
+  gross_salary             Float?                 @db.Double
+  deductions               Float?                 @db.Double
+  net_salary               Float?                 @db.Double
+  salary_breakdown         String?                @db.LongText
+  status                   salary_reports_status  @default(DRAFT)
+  reviewed_by_id           String?                @db.VarChar(36)
+  reviewed_at              DateTime?              @db.DateTime(3)
+  approved_by_id           String?                @db.VarChar(36)
+  approved_at              DateTime?              @db.DateTime(3)
+  created_at               DateTime               @default(now()) @db.DateTime(3)
+  updated_at               DateTime               @default(now()) @db.DateTime(3)
+  User                     User                   @relation("salary_reports_user", fields: [user_id], references: [id], onDelete: Cascade)
+  Reviewer                 User?                  @relation("salary_reports_reviewer", fields: [reviewed_by_id], references: [id], onDelete: SetNull)
+  Approver                 User?                  @relation("salary_reports_approver", fields: [approved_by_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([month, year])
+  @@unique([user_id, month, year])
+}
+
+model documents {
+  id              String                   @id @db.VarChar(36)
+  title           String                   @db.VarChar(255)
+  description     String?                  @db.Text
+  document_type   documents_document_type? @default(OTHER)
+  category        documents_category?      @default(PERSONAL)
+  status          documents_status?        @default(DRAFT)
+  file_url        String?                  @db.VarChar(500)
+  file_size       Int?
+  file_type       String?                  @db.VarChar(100)
+  owner_id        String                   @db.VarChar(36)
+  uploaded_by     String?                  @db.VarChar(36)
+  metadata        Json?
+  is_confidential Boolean?                 @default(false)
+  expires_at      DateTime?                @db.DateTime(0)
+  created_at      DateTime?                @default(now()) @db.DateTime(0)
+  updated_at      DateTime?                @default(now()) @db.DateTime(0)
+
+  @@index([owner_id], map: "idx_documents_owner")
+  @@index([status], map: "idx_documents_status")
+  @@index([document_type], map: "idx_documents_type")
+}
+
+model dossier_employe {
+  id             String               @id
+  userId         String               @db.VarChar(36)
+  type           dossier_employe_type
+  titre          String
+  description    String?
+  fichier        String?
+  date_obtention DateTime?
+  User           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "dossier_employe_userId_fkey")
+}
+
+model login_history {
+  id                 String    @id @db.VarChar(36)
+  user_id            String    @db.VarChar(36)
+  ip_address         String?   @db.VarChar(45)
+  user_agent         String?   @db.Text
+  login_method       String?   @default("credentials") @db.VarChar(50)
+  success            Boolean?  @default(true)
+  failure_reason     String?   @db.VarChar(255)
+  device_fingerprint String?   @db.VarChar(255)
+  is_suspicious      Boolean?  @default(false)
+  created_at         DateTime? @default(now()) @db.DateTime(0)
+  updated_at         DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([created_at], map: "idx_login_history_created")
+  @@index([is_suspicious], map: "idx_login_history_suspicious")
+  @@index([user_id], map: "idx_login_history_user")
+}
+
+model notifications {
+  id         String                 @id
+  user_id    String                 @db.VarChar(36)
+  type       notifications_type
+  title      String
+  message    String                 @db.Text
+  metadata   String?                @db.LongText
+  is_read    Boolean                @default(false)
+  read_at    DateTime?
+  priority   notifications_priority @default(NORMAL)
+  created_at DateTime               @default(now())
+  User       User                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_read])
+}
+
+model otp_tokens {
+  id         String    @id @db.VarChar(36)
+  email      String    @db.VarChar(255)
+  code       String    @db.VarChar(255)
+  expires    DateTime  @db.DateTime(0)
+  verified   Boolean?  @default(false)
+  attempts   Int?      @default(0)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+
+  @@index([email], map: "idx_email")
+  @@index([expires], map: "idx_expires")
+}
+
+model password_reset_tokens {
+  id         String   @id
+  email      String
+  token      String   @unique
+  expires    DateTime
+  created_at DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model rh_decisions {
+  id         String                @id
+  employe_id String                @db.VarChar(36)
+  decider_id String                @db.VarChar(36)
+  decision   rh_decisions_decision
+  reason     String?               @db.Text
+  comments   String?               @db.Text
+  metadata   String?               @db.LongText
+  created_at DateTime              @default(now())
+  User       User                  @relation(fields: [decider_id], references: [id], onDelete: Cascade)
+  Employe    Employe               @relation(fields: [employe_id], references: [id], onDelete: Cascade)
+
+  @@index([decider_id])
+  @@index([employe_id])
+}
+
+model rh_favorites {
+  id            String                     @id @db.VarChar(36)
+  rh_user_id    String                     @db.VarChar(36)
+  favorite_type rh_favorites_favorite_type
+  target_id     String                     @db.VarChar(36)
+  notes         String?                    @db.Text
+  created_at    DateTime?                  @default(now()) @db.DateTime(0)
+  updated_at    DateTime?                  @default(now()) @db.DateTime(0)
+
+  @@unique([rh_user_id, favorite_type, target_id], map: "unique_favorite")
+  @@index([target_id], map: "idx_rh_favorites_target")
+  @@index([favorite_type], map: "idx_rh_favorites_type")
+  @@index([rh_user_id], map: "idx_rh_favorites_user")
+}
+
+enum anomalies_type {
+  UNUSUAL_HOURS
+  MULTIPLE_DEVICES
+  FACE_VERIFICATION_FAIL
+  IMPOSSIBLE_LOCATION
+  DUPLICATE_POINTAGE
+  SUSPICIOUS_PATTERN
+  MISSING_CHECKOUT
+  SYSTEM_ERROR
+}
+
+enum LeaveRequest_type {
+  PAID_LEAVE
+  SICK_LEAVE
+  UNPAID_LEAVE
+  MATERNITY_LEAVE
+  PATERNITY_LEAVE
+}
+
+enum Permission_type {
   BASE
   ADVANCED
 }
-enum PermissionAction {
+
+enum Pointage_type {
+  IN
+  OUT
+}
+
+enum anomalies_severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum demande_conge_type {
+  PAID
+  UNPAID
+  MATERNITE
+  MALADIE
+  PREAVIS
+}
+
+enum demande_conge_half_day_session {
+  MORNING
+  AFTERNOON
+}
+
+enum dossier_employe_type {
+  DIPLOME
+  CERTIFICAT
+  ATTESTATION
+}
+
+enum notifications_type {
+  PROFILE_APPROVED
+  PROFILE_REJECTED
+  POINTAGE_ANOMALY
+  LEAVE_REQUEST
+  SYSTEM_ALERT
+  RH_ACTION_REQUIRED
+  DOCUMENT_REQUIRED
+  GENERAL
+}
+
+enum rh_favorites_favorite_type {
+  USER
+  DOCUMENT
+  CONTRACT
+}
+
+enum Permission_action {
   ADD
   DELETE
   EDIT
@@ -201,294 +637,23 @@ enum PermissionAction {
   PROCESS
 }
 
-// ========== DOSSIERS EMPLOYES ==========
-model DossierEmploye {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type          DossierType
-  titre         String
-  description   String?
-  fichier       String?
-  dateObtention DateTime?    @map("date_obtention")
-
-  @@map("dossier_employe")
+enum contracts_type {
+  CDI
+  CDD
+  Stage
+  Freelance
 }
 
-enum DossierType {
-  DIPLOME
-  CERTIFICAT
+enum documents_document_type {
+  CONTRACT
+  ID_CARD
+  CERTIFICATE
+  PAYSLIP
   ATTESTATION
+  OTHER
 }
 
-// ========== DEMANDES DE CONGÉ ==========
-model DemandeConge {
-  id         String        @id @default(cuid())
-  userId     String
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       CongeType
-  dateDebut  DateTime      @map("date_debut")
-  dateFin    DateTime      @map("date_fin")
-  status     StatutConge   @default(EN_ATTENTE)
-  commentaire String?
-
-  @@map("demande_conge")
-}
-
-enum CongeType {
-  PAID
-  UNPAID
-  MATERNITE
-  MALADIE
-  PREAVIS
-}
-enum StatutConge {
-  EN_ATTENTE
-  VALIDE
-  REFUSE
-}
-
-// ========== EMPLOYE ==========
-model Employe {
-  id            String         @id @default(cuid())
-  userId        String         @unique @map("user_id")
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nom           String?
-  prenom        String?
-  email         String?
-  birthday      DateTime?
-  sexe          Sexe?
-  rib           String?        @db.VarChar(24)
-  adresse       String?
-  telephone     String?
-  dateEmbauche  DateTime?      @map("date_embauche")
-  photo         String?        @db.LongText // URL or base64 of photo
-  cv            String?        @db.LongText // URL or base64 of CV
-  typeContrat   ContratType?   @map("type_contrat")
-  position      String?        // Job position
-  department    String?        // Department
-  status        EmployeStatus  @default(EN_ATTENTE)
-  rejectionReason String?      @db.Text @map("rejection_reason")
-  approvedBy    String?        @map("approved_by")
-  approvedAt    DateTime?      @map("approved_at")
-  autresDocuments String?      @db.LongText @map("autres_documents") // JSON documents
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-
-  rhDecisions   RHDecision[]
-
-  @@map("Employe")
-}
-
-enum EmployeStatus {
-  EN_ATTENTE    // Waiting for RH validation
-  APPROUVE      // Approved by RH
-  REJETE        // Rejected by RH
-}
-
-// ========== POINTAGE SYSTEM ==========
-model Pointage {
-  id                  String            @id @default(cuid())
-  userId              String            @map("user_id")
-  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type                PointageType
-  timestamp           DateTime          @default(now())
-  deviceFingerprintId String?           @map("device_fingerprint_id")
-  deviceFingerprint   DeviceFingerprint? @relation(fields: [deviceFingerprintId], references: [id])
-  ipAddress           String?           @map("ip_address")
-  geolocation         String?           @db.Text // JSON: {lat, lng, accuracy}
-  capturedPhoto       String?           @db.LongText @map("captured_photo") // base64 photo
-  faceVerified        Boolean           @default(false) @map("face_verified")
-  verificationScore   Float?            @map("verification_score") // 0-100
-  anomalyDetected     Boolean           @default(false) @map("anomaly_detected")
-  anomalyReason       String?           @db.Text @map("anomaly_reason")
-  status              PointageStatus    @default(VALID)
-  notes               String?           @db.Text
-  
-  createdAt           DateTime          @default(now()) @map("created_at")
-  
-  anomalies           Anomaly[]
-
-  @@index([userId, timestamp])
-  @@index([type, timestamp])
-  @@map("pointages")
-}
-
-enum PointageType {
-  IN        // Check-in
-  OUT       // Check-out
-}
-
-enum PointageStatus {
-  VALID
-  PENDING_REVIEW
-  REJECTED
-  CORRECTED
-}
-
-// ========== DEVICE FINGERPRINT ==========
-model DeviceFingerprint {
-  id                String   @id @default(cuid())
-  userId            String   @map("user_id")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fingerprint       String   @db.Text // JSON of device info
-  userAgent         String   @db.Text @map("user_agent")
-  platform          String?
-  browser           String?
-  screenResolution  String?  @map("screen_resolution")
-  timezone          String?
-  language          String?
-  firstSeen         DateTime @default(now()) @map("first_seen")
-  lastSeen          DateTime @updatedAt @map("last_seen")
-  isTrusted         Boolean  @default(false) @map("is_trusted")
-  
-  pointages         Pointage[]
-  
-  @@index([userId])
-  @@map("device_fingerprints")
-}
-
-// ========== ANOMALIES ==========
-model Anomaly {
-  id          String        @id @default(cuid())
-  type        AnomalyType
-  severity    AnomalySeverity
-  entityType  String        @map("entity_type") // "pointage", "user", "login", etc.
-  entityId    String        @map("entity_id")
-  pointageId  String?       @map("pointage_id")
-  pointage    Pointage?     @relation(fields: [pointageId], references: [id], onDelete: Cascade)
-  description String        @db.Text
-  metadata    String?       @db.LongText // JSON additional data
-  status      AnomalyStatus @default(PENDING)
-  resolvedBy  String?       @map("resolved_by")
-  resolvedAt  DateTime?     @map("resolved_at")
-  resolution  String?       @db.Text
-  
-  createdAt   DateTime      @default(now()) @map("created_at")
-  
-  @@index([type, status])
-  @@index([severity, status])
-  @@index([createdAt])
-  @@map("anomalies")
-}
-
-enum AnomalyType {
-  UNUSUAL_HOURS         // Pointage outside normal hours
-  MULTIPLE_DEVICES      // Multiple devices in short time
-  FACE_VERIFICATION_FAIL // Face not matching
-  IMPOSSIBLE_LOCATION   // Geo location mismatch
-  DUPLICATE_POINTAGE    // Duplicate within short time
-  SUSPICIOUS_PATTERN    // Unusual pattern detected
-  MISSING_CHECKOUT      // Check-in without check-out
-  SYSTEM_ERROR          // Technical error
-}
-
-enum AnomalySeverity {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum AnomalyStatus {
-  PENDING
-  INVESTIGATING
-  RESOLVED
-  FALSE_POSITIVE
-  IGNORED
-}
-
-// ========== AUDIT LOG ==========
-model AuditLog {
-  id          String        @id @default(cuid())
-  userId      String?       @map("user_id")
-  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      String        // "CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT", etc.
-  entityType  String        @map("entity_type") // "User", "Employe", "Pointage", etc.
-  entityId    String?       @map("entity_id")
-  changes     String?       @db.LongText // JSON of before/after
-  ipAddress   String?       @map("ip_address")
-  userAgent   String?       @db.Text @map("user_agent")
-  metadata    String?       @db.LongText // Additional context
-  severity    LogSeverity   @default(INFO)
-  
-  createdAt   DateTime      @default(now()) @map("created_at")
-  
-  @@index([userId, createdAt])
-  @@index([action, createdAt])
-  @@index([entityType, entityId])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-enum LogSeverity {
-  INFO
-  WARNING
-  ERROR
-  CRITICAL
-}
-
-// ========== NOTIFICATIONS ==========
-model Notification {
-  id          String             @id @default(cuid())
-  userId      String             @map("user_id")
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        NotificationType
-  title       String
-  message     String             @db.Text
-  metadata    String?            @db.LongText // JSON additional data
-  isRead      Boolean            @default(false) @map("is_read")
-  readAt      DateTime?          @map("read_at")
-  priority    NotificationPriority @default(NORMAL)
-  
-  createdAt   DateTime           @default(now()) @map("created_at")
-  
-  @@index([userId, isRead])
-  @@index([createdAt])
-  @@map("notifications")
-}
-
-enum NotificationType {
-  PROFILE_APPROVED
-  PROFILE_REJECTED
-  PROFILE_SUBMITTED
-  POINTAGE_ANOMALY
-  POINTAGE_SUCCESS
-  LEAVE_REQUEST
-  SYSTEM_ALERT
-  RH_ACTION_REQUIRED
-  DOCUMENT_REQUIRED
-  GENERAL
-}
-
-enum NotificationPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
-}
-
-// ========== RH DECISIONS ==========
-model RHDecision {
-  id          String         @id @default(cuid())
-  employeId   String         @map("employe_id")
-  employe     Employe        @relation(fields: [employeId], references: [id], onDelete: Cascade)
-  deciderId   String         @map("decider_id")
-  decider     User           @relation("RHDecider", fields: [deciderId], references: [id], onDelete: Cascade)
-  decision    DecisionType
-  reason      String?        @db.Text
-  comments    String?        @db.Text
-  metadata    String?        @db.LongText // JSON additional data
-  
-  createdAt   DateTime       @default(now()) @map("created_at")
-  
-  @@index([employeId])
-  @@index([deciderId])
-  @@index([createdAt])
-  @@map("rh_decisions")
-}
-
-enum DecisionType {
+enum rh_decisions_decision {
   APPROVED
   REJECTED
   SUSPENDED
@@ -496,237 +661,137 @@ enum DecisionType {
   UPDATED
 }
 
-// ========== COOKIE CONSENT (GDPR) ==========
-model CookieConsent {
-  id                  String   @id @default(cuid())
-  sessionId           String?  @map("session_id") // For anonymous users
-  userId              String?  @map("user_id") // For authenticated users
-  user                User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Consent preferences
-  necessary           Boolean  @default(true) // Always true, cannot be disabled
-  functional          Boolean  @default(false) // Session, language, theme preferences
-  analytics           Boolean  @default(false) // Analytics and tracking
-  marketing           Boolean  @default(false) // Marketing and advertising
-  
-  // Consent metadata
-  consentVersion      String   @default("1.0") @map("consent_version")
-  consentMethod       String   @default("banner") @map("consent_method") // banner, settings, api
-  ipAddress           String?  @map("ip_address")
-  userAgent           String?  @db.Text @map("user_agent")
-  
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-  
-  @@index([userId])
-  @@index([sessionId])
-  @@index([createdAt])
-  @@map("cookie_consents")
+enum ChatMessage_sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
 }
 
-// ========== USER SESSIONS (Enhanced) ==========
-model UserSession {
-  id                  String   @id @default(cuid())
-  userId              String   @map("user_id")
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Session info
-  sessionToken        String   @unique @map("session_token")
-  refreshToken        String?  @unique @map("refresh_token")
-  
-  // Device info
-  deviceFingerprint   String?  @db.Text @map("device_fingerprint")
-  userAgent           String?  @db.Text @map("user_agent")
-  ipAddress           String?  @map("ip_address")
-  platform            String?
-  browser             String?
-  
-  // Session state
-  isActive            Boolean  @default(true) @map("is_active")
-  lastActivity        DateTime @default(now()) @map("last_activity")
-  expiresAt           DateTime @map("expires_at")
-  
-  // Security
-  csrfToken           String?  @map("csrf_token")
-  revokedAt           DateTime? @map("revoked_at")
-  revokedReason       String?  @map("revoked_reason")
-  
-  createdAt           DateTime @default(now()) @map("created_at")
-  
-  @@index([userId])
-  @@index([sessionToken])
-  @@index([isActive, expiresAt])
-  @@map("user_sessions")
-}
-
-// ========== LOGIN HISTORY ==========
-model LoginHistory {
-  id              String    @id @default(cuid())
-  userId          String    @map("user_id")
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  loginAt         DateTime  @default(now()) @map("login_at")
-  ipAddress       String?   @map("ip_address")
-  userAgent       String?   @db.Text @map("user_agent")
-  deviceType      String?   @map("device_type") // mobile, desktop, tablet
-  browser         String?
-  os              String?
-  location        String?   // City, Country if available
-  isSuspicious    Boolean   @default(false) @map("is_suspicious")
-  suspiciousReason String?  @db.Text @map("suspicious_reason")
-  loginMethod     String    @default("credentials") @map("login_method") // credentials, google, otp
-  success         Boolean   @default(true)
-  failureReason   String?   @map("failure_reason")
-  
-  @@index([userId, loginAt])
-  @@index([loginAt])
-  @@map("login_history")
-}
-
-// ========== USER PREFERENCES ==========
-model UserPreferences {
-  id                    String   @id @default(cuid())
-  userId                String   @unique @map("user_id")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  language              String   @default("fr")
-  theme                 String   @default("system") // light, dark, system
-  emailNotifications    Boolean  @default(true) @map("email_notifications")
-  pushNotifications     Boolean  @default(true) @map("push_notifications")
-  smsNotifications      Boolean  @default(false) @map("sms_notifications")
-  digestFrequency       String   @default("daily") @map("digest_frequency") // none, daily, weekly
-  
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  
-  @@map("user_preferences")
-}
-
-// ========== RH FAVORITES ==========
-model RHFavorite {
-  id              String        @id @default(cuid())
-  rhUserId        String        @map("rh_user_id")
-  rhUser          User          @relation("RHFavoritesByUser", fields: [rhUserId], references: [id], onDelete: Cascade)
-  entityType      FavoriteType  @map("entity_type")
-  entityId        String        @map("entity_id")
-  notes           String?       @db.Text
-  priority        Int           @default(0)
-  
-  createdAt       DateTime      @default(now()) @map("created_at")
-  
-  @@unique([rhUserId, entityType, entityId])
-  @@index([rhUserId])
-  @@map("rh_favorites")
-}
-
-enum FavoriteType {
-  USER
-  DOCUMENT
-  CONTRACT
-  LEAVE_REQUEST
-}
-
-// ========== DOCUMENTS ==========
-model Document {
-  id              String           @id @default(cuid())
-  userId          String           @map("user_id")
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name            String
-  originalName    String           @map("original_name")
-  type            DocumentType
-  category        DocumentCategory
-  description     String?          @db.Text
-  filePath        String           @db.Text @map("file_path")
-  fileSize        Int              @map("file_size") // in bytes
-  mimeType        String           @map("mime_type")
-  status          DocumentStatus   @default(PENDING)
-  validatedBy     String?          @map("validated_by")
-  validatedAt     DateTime?        @map("validated_at")
-  expiresAt       DateTime?        @map("expires_at")
-  metadata        String?          @db.LongText // JSON additional data
-  
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  
-  @@index([userId, type])
-  @@index([category, status])
-  @@map("documents")
-}
-
-enum DocumentType {
-  CV
-  DIPLOMA
-  CERTIFICATE
-  ATTESTATION
-  CONTRACT
-  ID_CARD
-  PASSPORT
-  PHOTO
-  OTHER
-}
-
-enum DocumentCategory {
-  PERSONNEL
-  FORMATION
-  EXPERIENCE
-  CONTRAT
-  IDENTITE
-  AUTRE
-}
-
-enum DocumentStatus {
+enum Pointage_status {
+  VALID
+  ANOMALY
   PENDING
-  VALIDATED
-  REJECTED
-  EXPIRED
 }
 
-// ========== CONTRACTS ==========
-model Contract {
-  id                String           @id @default(cuid())
-  userId            String           @map("user_id")
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title             String
-  type              ContratType
-  description       String?          @db.Text
-  originalPdfPath   String           @db.Text @map("original_pdf_path")
-  signedPdfPath     String?          @db.Text @map("signed_pdf_path")
-  status            ContractStatus   @default(DRAFT)
-  version           Int              @default(1)
-  
-  // Signature zone configuration (JSON: {page, x, y, width, height})
-  signatureZone     String?          @db.Text @map("signature_zone")
-  
-  // Signature data
-  signatureData     String?          @db.LongText @map("signature_data") // Base64 signature image
-  signedAt          DateTime?        @map("signed_at")
-  signedIpAddress   String?          @map("signed_ip_address")
-  signedUserAgent   String?          @db.Text @map("signed_user_agent")
-  
-  // Tracking
-  sentAt            DateTime?        @map("sent_at")
-  viewedAt          DateTime?        @map("viewed_at")
-  archivedAt        DateTime?        @map("archived_at")
-  
-  // Workflow
-  createdBy         String           @map("created_by")
-  validFrom         DateTime?        @map("valid_from")
-  validUntil        DateTime?        @map("valid_until")
-  
-  // Versioning
-  parentId          String?          @map("parent_id")
-  
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  
-  @@index([userId, status])
-  @@index([status, createdAt])
-  @@map("contracts")
+enum User_role {
+  SUPER_ADMIN
+  RH
+  USER
 }
 
-enum ContractStatus {
+enum contracts_status {
   DRAFT
   SENT
   VIEWED
   SIGNED
   ARCHIVED
   CANCELLED
+}
+
+enum documents_category {
+  PERSONAL
+  PROFESSIONAL
+  ADMINISTRATIVE
+  FINANCIAL
+}
+
+enum Attendance_status {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+}
+
+enum demande_conge_status {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+enum documents_status {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum Employe_sexe {
+  HOMME
+  FEMME
+}
+
+enum LeaveRequest_status {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum anomalies_status {
+  PENDING
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+  IGNORED
+}
+
+enum notifications_priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum User_status {
+  INACTIVE
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum audit_logs_severity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum Employe_type_contrat {
+  CDI
+  CDD
+  Stage
+  Freelance
+}
+
+enum Employe_status {
+  EN_ATTENTE
+  APPROUVE
+  REJETE
+}
+
+enum attendance_sessions_session_type {
+  MORNING
+  AFTERNOON
+}
+
+enum attendance_sessions_status {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_DEPARTURE
+  INCOMPLETE
+}
+
+enum reward_days_status {
+  APPROVED
+  REVOKED
+}
+
+enum salary_reports_status {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
 }

@@ -6,6 +6,7 @@ import {
   Users, Clock, CheckCircle, XCircle, Calendar,
   Activity, Bell, LogIn, LogOut, AlertCircle 
 } from 'lucide-react';
+import PayrollDashboard from './PayrollDashboard';
 
 interface RecentActivity {
   id: string;
@@ -306,6 +307,9 @@ export default function RhDashboard() {
           </p>
         </a>
       </div>
+
+      {/* Payroll Dashboard */}
+      <PayrollDashboard />
     </div>
   );
 }
