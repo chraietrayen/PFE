@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { query, execute } from "@/lib/mysql-direct"
+import prisma from "@/lib/prisma"
 import crypto from "crypto"
+import { v4 as uuidv4 } from "uuid"
 import { emailService, isDevMode } from "@/lib/services/email-service"
 
 // ========================================
@@ -21,16 +22,6 @@ function generateResetToken(): string {
  * POST /api/auth/forgot-password
  * 
  * Sends a password reset email to the user
- * 
- * Request body:
- * - email: User's email address
- * 
- * Response:
- * - success: true (always, for security - don't reveal if email exists)
- * - message: Generic success message
- * 
- * DEV mode: Logs reset link to console
- * PROD mode: Sends email via SMTP
  */
 export async function POST(request: Request) {
   try {
@@ -49,14 +40,12 @@ export async function POST(request: Request) {
     // ========================================
     // STEP 1: Check if user exists
     // ========================================
-    const users = await query(
-      `SELECT id, email, name, password FROM User WHERE email = ? LIMIT 1`,
-      [normalizedEmail]
-    ) as any[];
-    const user = users[0];
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, email: true, name: true, password: true },
+    })
 
     // For security, always return success even if user doesn't exist
-    // This prevents email enumeration attacks
     if (!user) {
       console.log("[FORGOT PASSWORD] User not found:", normalizedEmail)
       return NextResponse.json({
@@ -68,7 +57,6 @@ export async function POST(request: Request) {
     // Check if user uses OAuth (no password set)
     if (!user.password) {
       console.log("[FORGOT PASSWORD] OAuth user:", normalizedEmail)
-      // Still return success for security
       return NextResponse.json({
         success: true,
         message: "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
@@ -79,31 +67,13 @@ export async function POST(request: Request) {
     // STEP 2: Check rate limiting
     // ========================================
     const rateWindow = new Date(Date.now() - RATE_WINDOW);
-    
-    // First check if table exists, if not create it
-    try {
-      await execute(`
-        CREATE TABLE IF NOT EXISTS password_reset_tokens (
-          id VARCHAR(36) PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          token VARCHAR(255) NOT NULL,
-          expires DATETIME NOT NULL,
-          used TINYINT(1) DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_email (email),
-          INDEX idx_token (token),
-          INDEX idx_expires (expires)
-        )
-      `, []);
-    } catch (e) {
-      // Table might already exist, ignore error
-    }
 
-    const recentRequestsResult = await query(
-      `SELECT COUNT(*) as count FROM password_reset_tokens WHERE email = ? AND created_at >= ?`,
-      [normalizedEmail, rateWindow]
-    ) as any[];
-    const recentRequests = recentRequestsResult[0]?.count || 0;
+    const recentRequests = await prisma.password_reset_tokens.count({
+      where: {
+        email: normalizedEmail,
+        created_at: { gte: rateWindow },
+      },
+    })
 
     if (recentRequests >= RATE_LIMIT) {
       console.log("[FORGOT PASSWORD] Rate limit exceeded:", normalizedEmail)
@@ -120,17 +90,19 @@ export async function POST(request: Request) {
     const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY)
 
     // Delete any existing tokens for this email
-    await execute(
-      `DELETE FROM password_reset_tokens WHERE email = ?`,
-      [normalizedEmail]
-    )
+    await prisma.password_reset_tokens.deleteMany({
+      where: { email: normalizedEmail },
+    })
 
     // Store new token
-    await execute(
-      `INSERT INTO password_reset_tokens (id, email, token, expires, used, created_at)
-       VALUES (UUID(), ?, ?, ?, 0, NOW())`,
-      [normalizedEmail, resetToken, expiresAt]
-    )
+    await prisma.password_reset_tokens.create({
+      data: {
+        id: uuidv4(),
+        email: normalizedEmail,
+        token: resetToken,
+        expires: expiresAt,
+      },
+    })
 
     // ========================================
     // STEP 4: Send reset email
@@ -155,7 +127,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
-      // Include token in DEV mode for testing
       ...(isDevMode() && { devToken: resetToken }),
     })
   } catch (error) {

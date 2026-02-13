@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { query, execute } from "@/lib/mysql-direct"
+import prisma from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
 // ========================================
@@ -15,7 +15,6 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
     }
   }
 
-  // Check for at least one uppercase letter
   if (!/[A-Z]/.test(password)) {
     return {
       valid: false,
@@ -23,7 +22,6 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
     }
   }
 
-  // Check for at least one lowercase letter
   if (!/[a-z]/.test(password)) {
     return {
       valid: false,
@@ -31,7 +29,6 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
     }
   }
 
-  // Check for at least one number
   if (!/[0-9]/.test(password)) {
     return {
       valid: false,
@@ -46,11 +43,6 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
  * POST /api/auth/reset-password
  * 
  * Resets the user's password using a valid reset token
- * 
- * Request body:
- * - token: The reset token from the email
- * - password: The new password
- * - confirmPassword: Password confirmation
  */
 export async function POST(request: Request) {
   try {
@@ -80,7 +72,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate password strength
     const validation = validatePassword(password)
     if (!validation.valid) {
       return NextResponse.json(
@@ -92,11 +83,9 @@ export async function POST(request: Request) {
     // ========================================
     // STEP 2: Find and validate token
     // ========================================
-    const tokens = await query(
-      `SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0 LIMIT 1`,
-      [token]
-    ) as any[];
-    const resetToken = tokens[0];
+    const resetToken = await prisma.password_reset_tokens.findUnique({
+      where: { token },
+    })
 
     if (!resetToken) {
       return NextResponse.json(
@@ -107,7 +96,7 @@ export async function POST(request: Request) {
 
     // Check if token is expired
     if (new Date() > new Date(resetToken.expires)) {
-      await execute(`DELETE FROM password_reset_tokens WHERE id = ?`, [resetToken.id])
+      await prisma.password_reset_tokens.delete({ where: { id: resetToken.id } })
       return NextResponse.json(
         { error: "Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau." },
         { status: 400 }
@@ -117,11 +106,10 @@ export async function POST(request: Request) {
     // ========================================
     // STEP 3: Find user
     // ========================================
-    const users = await query(
-      `SELECT id, email FROM User WHERE email = ? LIMIT 1`,
-      [resetToken.email]
-    ) as any[];
-    const user = users[0];
+    const user = await prisma.user.findUnique({
+      where: { email: resetToken.email },
+      select: { id: true, email: true },
+    })
 
     if (!user) {
       return NextResponse.json(
@@ -135,22 +123,15 @@ export async function POST(request: Request) {
     // ========================================
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    await execute(
-      `UPDATE User SET password = ?, updated_at = NOW() WHERE id = ?`,
-      [hashedPassword, user.id]
-    )
-
-    // Mark token as used
-    await execute(
-      `UPDATE password_reset_tokens SET used = 1 WHERE id = ?`,
-      [resetToken.id]
-    )
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword, updatedAt: new Date() },
+    })
 
     // Clean up all reset tokens for this user
-    await execute(
-      `DELETE FROM password_reset_tokens WHERE email = ?`,
-      [resetToken.email]
-    )
+    await prisma.password_reset_tokens.deleteMany({
+      where: { email: resetToken.email },
+    })
 
     console.log("[RESET PASSWORD] Password reset successful for:", resetToken.email)
 
@@ -171,7 +152,6 @@ export async function POST(request: Request) {
  * GET /api/auth/reset-password?token=xxx
  * 
  * Validates if a reset token is still valid
- * Used by the reset-password page to check before showing the form
  */
 export async function GET(request: Request) {
   try {
@@ -185,11 +165,9 @@ export async function GET(request: Request) {
       )
     }
 
-    const tokens = await query(
-      `SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0 LIMIT 1`,
-      [token]
-    ) as any[];
-    const resetToken = tokens[0];
+    const resetToken = await prisma.password_reset_tokens.findUnique({
+      where: { token },
+    })
 
     if (!resetToken) {
       return NextResponse.json({
