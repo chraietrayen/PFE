@@ -358,15 +358,7 @@ const translations: Record<Language, Record<string, string>> = {
     "analytics": "Analytiques",
     "reports": "Rapports",
     
-    // Chatbot / Help
-    "chatbot_title": "Assistant RH",
-    "chatbot_subtitle": "Toujours disponible pour vous aider",
-    "chatbot_online": "En ligne",
-    "chatbot_typing": "En train d'écrire...",
-    "chatbot_placeholder": "Posez votre question...",
-    "chatbot_send": "Envoyer",
-    "chatbot_beta": "L'assistant est en version bêta. Les réponses sont simulées pour le moment.",
-    "chatbot_welcome": "Je suis votre assistant RH virtuel. Je peux vous aider avec:\n\n• Questions sur les congés et absences\n• Informations sur vos pointages\n• Procédures administratives\n• Documents à fournir\n\nComment puis-je vous aider aujourd'hui?",
+    // Help
     "faq": "FAQ",
     "contact_support": "Contacter le support",
     "send_message": "Envoyer un message",
@@ -717,15 +709,7 @@ const translations: Record<Language, Record<string, string>> = {
     "analytics": "Analytics",
     "reports": "Reports",
     
-    // Chatbot / Help
-    "chatbot_title": "HR Assistant",
-    "chatbot_subtitle": "Always available to help you",
-    "chatbot_online": "Online",
-    "chatbot_typing": "Typing...",
-    "chatbot_placeholder": "Ask your question...",
-    "chatbot_send": "Send",
-    "chatbot_beta": "The assistant is in beta. Responses are simulated for now.",
-    "chatbot_welcome": "I'm your virtual HR assistant. I can help you with:\n\n• Questions about leaves and absences\n• Information about your attendance\n• Administrative procedures\n• Required documents\n\nHow can I help you today?",
+    // Help
     "faq": "FAQ",
     "contact_support": "Contact support",
     "send_message": "Send message",
@@ -1076,15 +1060,7 @@ const translations: Record<Language, Record<string, string>> = {
     "analytics": "التحليلات",
     "reports": "التقارير",
     
-    // Chatbot
-    "chatbot_title": "مساعد الموارد البشرية الذكي",
-    "chatbot_subtitle": "متاح دائماً لمساعدتك",
-    "chatbot_online": "متصل",
-    "chatbot_typing": "يكتب...",
-    "chatbot_placeholder": "اطرح سؤالك...",
-    "chatbot_send": "إرسال",
-    "chatbot_beta": "المساعد الذكي في النسخة التجريبية. الردود محاكاة حالياً.",
-    "chatbot_welcome": "أنا مساعدك الافتراضي للموارد البشرية. يمكنني مساعدتك في:\n\n• أسئلة حول الإجازات والغياب\n• معلومات عن حضورك\n• الإجراءات الإدارية\n• المستندات المطلوبة\n\nكيف يمكنني مساعدتك اليوم؟",
+    // Help
     "faq": "الأسئلة الشائعة",
     "contact_support": "الاتصال بالدعم",
     "send_message": "إرسال رسالة",

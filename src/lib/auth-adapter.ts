@@ -115,83 +115,29 @@ export function MySQLAdapter(): Adapter {
       }
     },
 
+    // Session methods - JWT strategy is used, no DB sessions needed
     async createSession(session) {
-      const id = uuid()
-      await prisma.session.create({
-        data: {
-          id,
-          sessionToken: session.sessionToken,
-          userId: session.userId,
-          expires: session.expires,
-        },
-      })
       return session as AdapterSession
     },
 
     async getSessionAndUser(sessionToken) {
-      const session = await prisma.session.findUnique({
-        where: { sessionToken },
-      })
-      if (!session) return null
-      const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-      })
-      if (!user) return null
-
-      return {
-        session: {
-          sessionToken: session.sessionToken,
-          userId: session.userId,
-          expires: session.expires,
-        },
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          emailVerified: user.emailVerified,
-          role: user.role || "USER",
-        },
-      } as { session: AdapterSession; user: AdapterUser & { role: string } }
+      return null
     },
 
     async updateSession(session) {
-      await prisma.session.update({
-        where: { sessionToken: session.sessionToken },
-        data: { expires: session.expires },
-      })
       return session as AdapterSession
     },
 
     async deleteSession(sessionToken) {
-      await prisma.session.deleteMany({ where: { sessionToken } })
+      // No-op: JWT strategy handles sessions
     },
 
     async createVerificationToken(token) {
-      await prisma.verificationToken.create({
-        data: {
-          identifier: token.identifier,
-          token: token.token,
-          expires: token.expires,
-        },
-      })
       return token
     },
 
     async useVerificationToken({ identifier, token }) {
-      const existing = await prisma.verificationToken.findFirst({
-        where: { identifier, token },
-      })
-      if (!existing) return null
-
-      await prisma.verificationToken.deleteMany({
-        where: { identifier, token },
-      })
-      return {
-        identifier: existing.identifier,
-        token: existing.token,
-        expires: existing.expires,
-      }
+      return null
     },
   }
 }

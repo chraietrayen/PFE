@@ -182,11 +182,7 @@ export async function DELETE(
 
     const deletedUserData = existingUsers[0]
 
-    console.log("User found, deleting sessions and accounts...")
-
-    // Delete sessions first
-    await execute('DELETE FROM Session WHERE userId = ?', [id])
-    console.log("Deleted sessions")
+    console.log("User found, deleting accounts...")
 
     // Delete accounts
     await execute('DELETE FROM Account WHERE userId = ?', [id])

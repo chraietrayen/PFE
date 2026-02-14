@@ -35,15 +35,7 @@ export async function GET(
 
         const employee = employees[0];
 
-        // Get RH decisions with decider info
-        const rhDecisions = await query(
-          `SELECT rd.*, d.id as decider_id, d.name as decider_name, d.email as decider_email
-           FROM RHDecision rd
-           LEFT JOIN User d ON rd.deciderId = d.id
-           WHERE rd.employeId = ?
-           ORDER BY rd.createdAt DESC`,
-          [id]
-        ) as any[];
+        const rhDecisions: any[] = [];
 
         // Get employee documents
         const dossiers = await query(
@@ -76,15 +68,7 @@ export async function GET(
           updatedAt: employee.updated_at,
         };
 
-        // Format RH decisions with decider
-        const formattedDecisions = rhDecisions.map((rd: any) => ({
-          ...rd,
-          decider: rd.decider_id ? {
-            id: rd.decider_id,
-            name: rd.decider_name,
-            email: rd.decider_email,
-          } : null,
-        }));
+        const formattedDecisions = rhDecisions;
 
         // Return complete dossier
         return NextResponse.json({

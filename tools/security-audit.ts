@@ -76,20 +76,6 @@ class SecurityAuditor {
       details: { count: inactiveAdmins },
     });
 
-    // Check for expired sessions
-    const expiredSessions = await prisma.session.count({
-      where: {
-        expires: { lt: new Date() },
-      },
-    });
-
-    checks.push({
-      name: "Expired sessions",
-      status: "PASS",
-      message: `${expiredSessions} expired sessions (will be cleaned)`,
-      details: { count: expiredSessions },
-    });
-
     this.results.push({ category, checks });
   }
 

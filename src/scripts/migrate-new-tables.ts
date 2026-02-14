@@ -3,9 +3,6 @@
  * Run this script to create the new tables for:
  * - LoginHistory
  * - UserPreferences
- * - RHFavorite
- * - Document
- * - Contract
  */
 
 import { execute, query, testConnection } from '../lib/db';
@@ -46,75 +43,6 @@ const migrations = [
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES User(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  // RHFavorite table
-  `CREATE TABLE IF NOT EXISTS rh_favorites (
-    id VARCHAR(36) PRIMARY KEY,
-    rh_user_id VARCHAR(36) NOT NULL,
-    favorite_type ENUM('USER', 'DOCUMENT', 'CONTRACT') NOT NULL,
-    target_id VARCHAR(36) NOT NULL,
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_rh_favorites_user (rh_user_id),
-    INDEX idx_rh_favorites_type (favorite_type),
-    INDEX idx_rh_favorites_target (target_id),
-    UNIQUE KEY unique_favorite (rh_user_id, favorite_type, target_id),
-    FOREIGN KEY (rh_user_id) REFERENCES User(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  // Document table
-  `CREATE TABLE IF NOT EXISTS documents (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    document_type ENUM('CONTRACT', 'ID_CARD', 'CERTIFICATE', 'PAYSLIP', 'ATTESTATION', 'OTHER') DEFAULT 'OTHER',
-    category ENUM('PERSONAL', 'PROFESSIONAL', 'ADMINISTRATIVE', 'FINANCIAL') DEFAULT 'PERSONAL',
-    status ENUM('DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'ARCHIVED') DEFAULT 'DRAFT',
-    file_url VARCHAR(500),
-    file_size INT,
-    file_type VARCHAR(100),
-    owner_id VARCHAR(36) NOT NULL,
-    uploaded_by VARCHAR(36),
-    metadata JSON,
-    is_confidential BOOLEAN DEFAULT false,
-    expires_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_documents_owner (owner_id),
-    INDEX idx_documents_type (document_type),
-    INDEX idx_documents_status (status),
-    FOREIGN KEY (owner_id) REFERENCES User(id) ON DELETE CASCADE,
-    FOREIGN KEY (uploaded_by) REFERENCES User(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  // Contract table
-  `CREATE TABLE IF NOT EXISTS contracts (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    contract_type VARCHAR(100) DEFAULT 'EMPLOYMENT',
-    status ENUM('DRAFT', 'SENT', 'SIGNED', 'ARCHIVED', 'EXPIRED') DEFAULT 'DRAFT',
-    file_url VARCHAR(500),
-    signed_file_url VARCHAR(500),
-    signature_data LONGTEXT,
-    employee_id VARCHAR(36) NOT NULL,
-    created_by VARCHAR(36),
-    sent_at DATETIME,
-    signed_at DATETIME,
-    expires_at DATETIME,
-    version INT DEFAULT 1,
-    parent_contract_id VARCHAR(36),
-    metadata JSON,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_contracts_employee (employee_id),
-    INDEX idx_contracts_status (status),
-    INDEX idx_contracts_created_by (created_by),
-    FOREIGN KEY (employee_id) REFERENCES User(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES User(id) ON DELETE SET NULL,
-    FOREIGN KEY (parent_contract_id) REFERENCES contracts(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
 async function runMigrations() {

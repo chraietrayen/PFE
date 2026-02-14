@@ -67,9 +67,6 @@ export default function MigratePage() {
             <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
               <li>• <code>login_history</code> - Historique des connexions</li>
               <li>• <code>user_preferences</code> - Préférences utilisateur</li>
-              <li>• <code>rh_favorites</code> - Favoris RH</li>
-              <li>• <code>documents</code> - Gestion des documents</li>
-              <li>• <code>contracts</code> - Gestion des contrats</li>
             </ul>
           </div>
 

@@ -26,26 +26,7 @@ model Account {
   @@unique([provider, providerAccountId], map: "provider_providerAccountId")
 }
 
-model Attendance {
-  id         String             @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
-  employeeId String             @db.VarChar(36)
-  date       DateTime           @db.Date
-  checkIn    DateTime?          @db.DateTime(0)
-  checkOut   DateTime?          @db.DateTime(0)
-  status     Attendance_status? @default(PRESENT)
-  notes      String?            @db.Text
-  createdAt  DateTime?          @default(now()) @db.DateTime(0)
-  updatedAt  DateTime?          @default(now()) @db.DateTime(0)
-}
 
-model ChatMessage {
-  id        String                 @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
-  userId    String                 @db.VarChar(36)
-  message   String                 @db.Text
-  response  String?                @db.Text
-  sentiment ChatMessage_sentiment?
-  createdAt DateTime?              @default(now()) @db.DateTime(0)
-}
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Employe {
@@ -77,8 +58,6 @@ model Employe {
   hourlyRate         Float?                @map("hourly_rate") @db.Double
   annualLeave        Int?                  @default(26) @map("annual_leave")
   User               User                  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_employe_user")
-  rh_decisions       rh_decisions[]
-
   @@index([userId], map: "idx_user_id")
 }
 
@@ -158,14 +137,7 @@ model RolePermission {
   @@index([permissionId], map: "permissionId")
 }
 
-model Session {
-  id           String    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
-  sessionToken String    @unique(map: "sessionToken") @db.VarChar(255)
-  userId       String    @db.VarChar(36)
-  expires      DateTime  @db.DateTime(0)
-  createdAt    DateTime? @default(now()) @db.DateTime(0)
-  updatedAt    DateTime? @default(now()) @db.DateTime(0)
-}
+
 
 model User {
   id                       String                @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
@@ -185,10 +157,9 @@ model User {
   audit_logs               audit_logs[]
   cookie_consents          cookie_consents[]
   demande_conge            DemandeConge[]
-  device_fingerprints      device_fingerprints[]
   dossier_employe          dossier_employe[]
   notifications            notifications[]
-  rh_decisions             rh_decisions[]
+
   attendance_sessions      AttendanceSession[]
   reward_days_user         RewardDay[]           @relation("reward_days_user")
   reward_days_granted_by   RewardDay[]           @relation("reward_days_granted_by")
@@ -257,36 +228,7 @@ model audit_logs {
   @@index([user_id, created_at])
 }
 
-model contracts {
-  id                String           @id @db.VarChar(36)
-  title             String           @db.VarChar(255)
-  description       String?          @db.Text
-  type              contracts_type
-  status            contracts_status @default(DRAFT)
-  original_pdf_path String           @db.Text
-  signed_pdf_path   String?          @db.Text
-  signature_data    String?          @db.LongText
-  user_id           String
-  created_by        String?          @db.VarChar(36)
-  valid_from        DateTime?
-  sent_at           DateTime?        @db.DateTime(0)
-  viewed_at         DateTime?
-  archived_at       DateTime?
-  signed_at         DateTime?        @db.DateTime(0)
-  signed_ip_address String?
-  signed_user_agent String?          @db.Text
-  valid_until       DateTime?
-  version           Int?             @default(1)
-  signature_zone    String?          @db.Text
-  parent_id         String?
-  metadata          Json?
-  created_at        DateTime?        @default(now()) @db.DateTime(0)
-  updated_at        DateTime?        @default(now()) @db.DateTime(0)
 
-  @@index([created_by], map: "idx_contracts_created_by")
-  @@index([user_id], map: "idx_contracts_employee")
-  @@index([status], map: "idx_contracts_status")
-}
 
 model cookie_consents {
   id              String    @id @db.VarChar(36)
@@ -329,23 +271,7 @@ model DemandeConge {
   @@map("demande_conge")
 }
 
-model device_fingerprints {
-  id                String   @id
-  user_id           String   @db.VarChar(36)
-  fingerprint       String   @db.Text
-  user_agent        String   @db.Text
-  platform          String?
-  browser           String?
-  screen_resolution String?
-  timezone          String?
-  language          String?
-  first_seen        DateTime @default(now())
-  last_seen         DateTime @default(now())
-  is_trusted        Boolean  @default(false)
-  User              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id])
-}
 
 model AttendanceSession {
   id                  String                        @id @default(dbgenerated("(uuid())")) @db.VarChar(191)
@@ -437,28 +363,7 @@ model SalaryReport {
   @@map("salary_reports")
 }
 
-model documents {
-  id              String                   @id @db.VarChar(36)
-  title           String                   @db.VarChar(255)
-  description     String?                  @db.Text
-  document_type   documents_document_type? @default(OTHER)
-  category        documents_category?      @default(PERSONAL)
-  status          documents_status?        @default(DRAFT)
-  file_url        String?                  @db.VarChar(500)
-  file_size       Int?
-  file_type       String?                  @db.VarChar(100)
-  owner_id        String                   @db.VarChar(36)
-  uploaded_by     String?                  @db.VarChar(36)
-  metadata        Json?
-  is_confidential Boolean?                 @default(false)
-  expires_at      DateTime?                @db.DateTime(0)
-  created_at      DateTime?                @default(now()) @db.DateTime(0)
-  updated_at      DateTime?                @default(now()) @db.DateTime(0)
 
-  @@index([owner_id], map: "idx_documents_owner")
-  @@index([status], map: "idx_documents_status")
-  @@index([document_type], map: "idx_documents_type")
-}
 
 model dossier_employe {
   id             String               @id
@@ -530,36 +435,7 @@ model password_reset_tokens {
   @@unique([email, token])
 }
 
-model rh_decisions {
-  id         String                @id
-  employe_id String                @db.VarChar(36)
-  decider_id String                @db.VarChar(36)
-  decision   rh_decisions_decision
-  reason     String?               @db.Text
-  comments   String?               @db.Text
-  metadata   String?               @db.LongText
-  created_at DateTime              @default(now())
-  User       User                  @relation(fields: [decider_id], references: [id], onDelete: Cascade)
-  Employe    Employe               @relation(fields: [employe_id], references: [id], onDelete: Cascade)
 
-  @@index([decider_id])
-  @@index([employe_id])
-}
-
-model rh_favorites {
-  id            String                     @id @db.VarChar(36)
-  rh_user_id    String                     @db.VarChar(36)
-  favorite_type rh_favorites_favorite_type
-  target_id     String                     @db.VarChar(36)
-  notes         String?                    @db.Text
-  created_at    DateTime?                  @default(now()) @db.DateTime(0)
-  updated_at    DateTime?                  @default(now()) @db.DateTime(0)
-
-  @@unique([rh_user_id, favorite_type, target_id], map: "unique_favorite")
-  @@index([target_id], map: "idx_rh_favorites_target")
-  @@index([favorite_type], map: "idx_rh_favorites_type")
-  @@index([rh_user_id], map: "idx_rh_favorites_user")
-}
 
 enum anomalies_type {
   UNUSUAL_HOURS
@@ -628,11 +504,7 @@ enum notifications_type {
   GENERAL
 }
 
-enum rh_favorites_favorite_type {
-  USER
-  DOCUMENT
-  CONTRACT
-}
+
 
 enum Permission_action {
   ADD
@@ -645,35 +517,7 @@ enum Permission_action {
   PROCESS
 }
 
-enum contracts_type {
-  CDI
-  CDD
-  Stage
-  Freelance
-}
 
-enum documents_document_type {
-  CONTRACT
-  ID_CARD
-  CERTIFICATE
-  PAYSLIP
-  ATTESTATION
-  OTHER
-}
-
-enum rh_decisions_decision {
-  APPROVED
-  REJECTED
-  SUSPENDED
-  REACTIVATED
-  UPDATED
-}
-
-enum ChatMessage_sentiment {
-  POSITIVE
-  NEGATIVE
-  NEUTRAL
-}
 
 enum Pointage_status {
   VALID
@@ -687,28 +531,9 @@ enum User_role {
   USER
 }
 
-enum contracts_status {
-  DRAFT
-  SENT
-  VIEWED
-  SIGNED
-  ARCHIVED
-  CANCELLED
-}
 
-enum documents_category {
-  PERSONAL
-  PROFESSIONAL
-  ADMINISTRATIVE
-  FINANCIAL
-}
 
-enum Attendance_status {
-  PRESENT
-  ABSENT
-  LATE
-  HALF_DAY
-}
+
 
 enum demande_conge_status {
   EN_ATTENTE
@@ -716,13 +541,7 @@ enum demande_conge_status {
   REFUSE
 }
 
-enum documents_status {
-  DRAFT
-  PENDING
-  APPROVED
-  REJECTED
-  ARCHIVED
-}
+
 
 enum Employe_sexe {
   HOMME

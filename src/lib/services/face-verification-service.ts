@@ -227,7 +227,6 @@ class FaceVerificationService {
     type: "IN" | "OUT",
     captureData: CapturePhotoData,
     verificationResult: FaceVerificationResult,
-    deviceFingerprintId?: string,
     ipAddress?: string
   ): Promise<string> {
     // Determine if anomaly should be created
@@ -251,8 +250,8 @@ class FaceVerificationService {
     // Create pointage
     const pointageId = `ptg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await execute(
-      `INSERT INTO Pointage (id, user_id, type, timestamp, capturedPhoto, face_verified, verificationScore, anomaly_detected, anomaly_reason, status, deviceFingerprintId, ip_address, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO Pointage (id, user_id, type, timestamp, capturedPhoto, face_verified, verificationScore, anomaly_detected, anomaly_reason, status, ip_address, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         pointageId,
         userId,
@@ -264,7 +263,6 @@ class FaceVerificationService {
         anomalyDetected ? 1 : 0,
         anomalyReason,
         status,
-        deviceFingerprintId || null,
         ipAddress || null,
         JSON.stringify({
           captureMethod: captureData.captureMethod,

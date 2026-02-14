@@ -50,20 +50,6 @@ async function migrate() {
   `)
   console.log('✅ Table Account créée')
 
-  // Table Session
-  await connection.execute(`
-    CREATE TABLE IF NOT EXISTS Session (
-      id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-      sessionToken VARCHAR(255) UNIQUE NOT NULL,
-      userId VARCHAR(36) NOT NULL,
-      expires DATETIME NOT NULL,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
-    )
-  `)
-  console.log('✅ Table Session créée')
-
   // Table VerificationToken
   await connection. execute(`
     CREATE TABLE IF NOT EXISTS VerificationToken (
@@ -100,24 +86,6 @@ async function migrate() {
   `)
   console.log('✅ Table Employee créée')
 
-  // Table Attendance (Pointage)
-  await connection.execute(`
-    CREATE TABLE IF NOT EXISTS Attendance (
-      id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-      employeeId VARCHAR(36) NOT NULL,
-      date DATE NOT NULL,
-      checkIn DATETIME,
-      checkOut DATETIME,
-      status ENUM('PRESENT', 'ABSENT', 'LATE', 'HALF_DAY') DEFAULT 'PRESENT',
-      notes TEXT,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (employeeId) REFERENCES Employee(id) ON DELETE CASCADE,
-      UNIQUE KEY employee_date (employeeId, date)
-    )
-  `)
-  console.log('✅ Table Attendance créée')
-
   // Table LeaveRequest (Congés)
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS LeaveRequest (
@@ -137,20 +105,6 @@ async function migrate() {
     )
   `)
   console.log('✅ Table LeaveRequest créée')
-
-  // Table ChatMessage (pour Chatbot)
-  await connection. execute(`
-    CREATE TABLE IF NOT EXISTS ChatMessage (
-      id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
-      userId VARCHAR(36) NOT NULL,
-      message TEXT NOT NULL,
-      response TEXT,
-      sentiment ENUM('POSITIVE', 'NEGATIVE', 'NEUTRAL'),
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
-    )
-  `)
-  console.log('✅ Table ChatMessage créée')
 
   // Créer un Super Admin par défaut
   await connection.execute(`

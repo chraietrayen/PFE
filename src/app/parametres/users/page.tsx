@@ -1,11 +1,10 @@
 "use client"
 import { useEffect, useState } from "react"
-import { User, Edit3, Trash2, RefreshCw, Mail, Phone, Filter, LayoutGrid, List, Search, UserPlus, Briefcase, FileText } from "lucide-react"
+import { User, Edit3, Trash2, RefreshCw, Mail, Phone, Filter, LayoutGrid, List, Search, UserPlus, Briefcase } from "lucide-react"
 import AddUserModal from "@/components/users/AddUserModal"
 import EditUserModal from "@/components/users/EditUserModal"
 import ConfirmationModal from "@/components/ui/ConfirmationModal"
 import UserDossierModal from "@/components/users/UserDossierModal"
-import SendContractModal from "@/components/contracts/SendContractModal"
 import { usePermissions } from "@/contexts/PermissionsContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { useLanguage } from "@/contexts/LanguageContext"
@@ -49,8 +48,6 @@ export default function UsersPage() {
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [showDossierModal, setShowDossierModal] = useState(false)
-  const [showContractModal, setShowContractModal] = useState(false)
-  const [userForContract, setUserForContract] = useState<any>(null)
   const { hasPermission } = usePermissions()
   const { showNotification } = useNotification()
   const { language } = useLanguage()
@@ -396,20 +393,6 @@ export default function UsersPage() {
                         {getText('viewProfile')}
                       </button>
                     )}
-                    {/* Send Contract Button - Only for approved employees */}
-                    {user.hasEmployeeProfile && user.statut === 'APPROUVE' && canEdit && (
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          setUserForContract(user);
-                          setShowContractModal(true);
-                        }}
-                        className="p-2 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 transition-colors"
-                        title="Envoyer un contrat"
-                      >
-                        <FileText className="w-5 h-5" />
-                      </button>
-                    )}
                     {canEdit && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleEditUser(user) }}
@@ -493,20 +476,6 @@ export default function UsersPage() {
                                 title={getText('viewProfile')}
                               >
                                 <User className="w-4 h-4" />
-                              </button>
-                            )}
-                            {/* Send Contract Button */}
-                            {user.hasEmployeeProfile && user.statut === 'APPROUVE' && canEdit && (
-                              <button 
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  setUserForContract(user);
-                                  setShowContractModal(true);
-                                }}
-                                className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-600"
-                                title="Envoyer un contrat"
-                              >
-                                <FileText className="w-4 h-4" />
                               </button>
                             )}
                             {canEdit && (
@@ -599,24 +568,6 @@ export default function UsersPage() {
         />
       )}
 
-      {/* Send Contract Modal */}
-      {showContractModal && userForContract && (
-        <SendContractModal
-          isOpen={showContractModal}
-          onClose={() => {
-            setShowContractModal(false)
-            setUserForContract(null)
-          }}
-          user={userForContract}
-          onSuccess={() => {
-            showNotification({
-              type: 'success',
-              title: 'Contrat envoyé',
-              message: `Le contrat a été envoyé à ${userForContract.prenom || userForContract.name} ${userForContract.nom || ''}`
-            })
-          }}
-        />
-      )}
     </div>
   )
 }

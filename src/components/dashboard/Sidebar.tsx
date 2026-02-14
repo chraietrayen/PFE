@@ -70,27 +70,9 @@ export function Sidebar({ userRole }: SidebarProps) {
       roles: ["USER"] // Only regular users can request leaves - RH manages them
     },
     { 
-      href: "/documents", 
-      labelKey: "my_documents", 
-      icon: <FileText className="w-5 h-5" />,
-      roles: ["USER", "RH", "SUPER_ADMIN"]
-    },
-    { 
-      href: "/contracts", 
-      labelKey: "contracts", 
-      icon: <FileText className="w-5 h-5" />,
-      roles: ["USER", "RH", "SUPER_ADMIN"]
-    },
-    { 
       href: "/security", 
       labelKey: "login_history", 
       icon: <Shield className="w-5 h-5" />,
-      roles: ["USER", "RH", "SUPER_ADMIN"]
-    },
-    { 
-      href: "/chatbot", 
-      labelKey: "ai_assistant", 
-      icon: <MessageSquare className="w-5 h-5" />,
       roles: ["USER", "RH", "SUPER_ADMIN"]
     },
   ]

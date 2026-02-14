@@ -9,7 +9,6 @@ import { query, getConnection } from "@/lib/mysql-direct";
 import { auditLogger } from "@/lib/services/audit-logger";
 import { notificationService } from "@/lib/services/notification-service";
 import { emailService } from "@/lib/services/email-service";
-import { v4 as uuidv4 } from "uuid";
 import type { RowDataPacket } from "mysql2";
 
 interface EmployeeRow extends RowDataPacket {
@@ -69,13 +68,6 @@ export const POST = withAuth(
           WHERE id = ?
         `, [employee.user_id]);
         
-        // Create RH decision record
-        const decisionId = uuidv4();
-        await connection.execute(`
-          INSERT INTO RHDecision (id, employe_id, decider_id, decision, reason, comments, createdAt)
-          VALUES (?, ?, ?, 'REJECTED', ?, ?, NOW())
-        `, [decisionId, employeId, user.id, reason, comments || null]);
-        
         await connection.commit();
       } catch (txError) {
         await connection.rollback();
@@ -106,13 +98,15 @@ export const POST = withAuth(
       // Log the action
       const clientInfo = getClientInfo(req);
       try {
-        await auditLogger.logRHDecision(
-          employeId,
-          user.id,
-          "REJECTED",
-          reason,
-          clientInfo
-        );
+        await auditLogger.log({
+          action: "RH_REJECT",
+          userId: user.id,
+          entityType: "Employe",
+          entityId: employeId,
+          metadata: { reason, comments },
+          ipAddress: clientInfo?.ipAddress,
+          severity: "INFO",
+        });
       } catch (e) {
         console.log("Audit log error (non-blocking):", e);
       }

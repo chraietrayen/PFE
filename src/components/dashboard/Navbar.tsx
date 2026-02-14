@@ -20,8 +20,6 @@ const routeConfig: Record<string, { label: string; icon: React.ReactNode; parent
   "/workspace": { label: "Espace de travail", icon: <Activity className="w-4 h-4" /> },
   "/pointage": { label: "Pointage", icon: <Clock className="w-4 h-4" /> },
   "/conges": { label: "Congés", icon: <Calendar className="w-4 h-4" /> },
-  "/documents": { label: "Documents", icon: <FileText className="w-4 h-4" /> },
-  "/chatbot": { label: "Assistant", icon: <Briefcase className="w-4 h-4" /> },
   "/rh/conges": { label: "Gestion Congés", icon: <Calendar className="w-4 h-4" />, parent: "RH" },
   "/rh/profiles": { label: "Validation Profils", icon: <UserCheck className="w-4 h-4" />, parent: "RH" },
   "/rh/notifications": { label: "Notifications", icon: <Bell className="w-4 h-4" />, parent: "RH" },

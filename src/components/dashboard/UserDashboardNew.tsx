@@ -54,15 +54,6 @@ export default function UserDashboard() {
       iconColor: "text-blue-600 dark:text-blue-400"
     },
     {
-      title: "Documents",
-      description: "Mes documents RH",
-      icon: FileText,
-      href: "/documents",
-      color: "from-teal-500 to-teal-600",
-      bgColor: "bg-teal-50 dark:bg-teal-900/20",
-      iconColor: "text-teal-600 dark:text-teal-400"
-    },
-    {
       title: "Mon Profil",
       description: "Informations personnelles",
       icon: User,

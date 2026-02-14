@@ -31,14 +31,6 @@ interface EmployeeRow extends RowDataPacket {
   user_role: string;
   user_status: string;
   user_created_at: Date;
-  decision_id: string;
-  decision: string;
-  decision_reason: string;
-  decision_comments: string;
-  decision_created_at: Date;
-  decider_name: string;
-  decider_last_name: string;
-  decider_email: string;
 }
 
 export const GET = withAuth(
@@ -56,23 +48,9 @@ export const GET = withAuth(
           u.email as user_email,
           u.role as user_role,
           u.status as user_status,
-          u.createdAt as user_created_at,
-          rd.id as decision_id,
-          rd.decision,
-          rd.reason as decision_reason,
-          rd.comments as decision_comments,
-          rd.createdAt as decision_created_at,
-          dec.name as decider_name,
-          dec.email as decider_email
+          u.createdAt as user_created_at
         FROM Employe e
         LEFT JOIN User u ON e.user_id = u.id
-        LEFT JOIN (
-          SELECT * FROM RHDecision rd1
-          WHERE rd1.createdAt = (
-            SELECT MAX(rd2.createdAt) FROM RHDecision rd2 WHERE rd2.employe_id = rd1.employe_id
-          )
-        ) rd ON rd.employe_id = e.id
-        LEFT JOIN User dec ON rd.decider_id = dec.id
         WHERE 1=1
       `;
       
@@ -120,18 +98,7 @@ export const GET = withAuth(
           status: emp.user_status,
           createdAt: emp.user_created_at,
         } : null,
-        rhDecisions: emp.decision_id ? [{
-          id: emp.decision_id,
-          decision: emp.decision,
-          reason: emp.decision_reason,
-          comments: emp.decision_comments,
-          createdAt: emp.decision_created_at,
-          decider: {
-            name: emp.decider_name,
-            lastName: emp.decider_last_name,
-            email: emp.decider_email,
-          },
-        }] : [],
+        rhDecisions: [],
       }));
       
       return NextResponse.json(formatted);

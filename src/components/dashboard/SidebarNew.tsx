@@ -43,26 +43,6 @@ export function SidebarNew({ userRole }: SidebarProps) {
   const pathname = usePathname()
   const { t, isRTL } = useLanguage()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [contractCount, setContractCount] = useState(0)
-
-  // Fetch contract count
-  useEffect(() => {
-    const fetchContractCount = async () => {
-      try {
-        const response = await fetch("/api/contracts/count")
-        if (response.ok) {
-          const data = await response.json()
-          setContractCount(data.count || 0)
-        }
-      } catch (error) {
-        console.error("Error fetching contract count:", error)
-      }
-    }
-    fetchContractCount()
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchContractCount, 30000)
-    return () => clearInterval(interval)
-  }, [])
 
   // Close sidebar on route change
   useEffect(() => {
@@ -91,10 +71,7 @@ export function SidebarNew({ userRole }: SidebarProps) {
         { href: "/workspace", label: t("workspace"), icon: <Activity className="w-5 h-5" />, roles: ["USER", "RH"] },
         { href: "/pointage", label: t("attendance"), icon: <Clock className="w-5 h-5" />, roles: ["USER", "RH", "SUPER_ADMIN"] },
         { href: "/conges", label: t("leave_requests"), icon: <Calendar className="w-5 h-5" />, roles: ["USER"] },
-        { href: "/documents", label: t("my_documents"), icon: <FileText className="w-5 h-5" />, roles: ["USER"] },
-        { href: "/contracts", label: t("contracts"), icon: <FileText className="w-5 h-5" />, roles: ["USER", "RH"] },
         { href: "/security", label: t("login_history"), icon: <Shield className="w-5 h-5" />, roles: ["USER", "RH", "SUPER_ADMIN"] },
-        { href: "/chatbot", label: t("help") || "Assistance", icon: <HelpCircle className="w-5 h-5" />, roles: ["USER", "RH"] },
       ]
     },
     {
@@ -126,7 +103,6 @@ export function SidebarNew({ userRole }: SidebarProps) {
 
   const renderMenuItem = (item: MenuItem) => {
     const active = isActive(item.href)
-    const showBadge = item.href === "/documents/contracts" && contractCount > 0
     
     return (
       <Link
@@ -146,11 +122,6 @@ export function SidebarNew({ userRole }: SidebarProps) {
           {item.icon}
         </span>
         <span className="truncate flex-1">{item.label}</span>
-        {showBadge && (
-          <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
-            {contractCount}
-          </span>
-        )}
       </Link>
     )
   }

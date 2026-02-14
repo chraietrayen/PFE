@@ -10,7 +10,6 @@ import { notificationService } from "./notification-service";
 interface CreatePointageParams {
   userId: string;
   type: "IN" | "OUT";
-  deviceFingerprint?: string;
   ipAddress?: string;
   geolocation?: { lat: number; lng: number; accuracy: number };
   capturedPhoto?: string;
@@ -34,30 +33,18 @@ class PointageService {
       // Check for anomalies
       const anomalyCheck = await this.checkForAnomalies(params);
       
-      // Get or create device fingerprint
-      let deviceFingerprintId: string | undefined;
-      if (params.deviceFingerprint) {
-        const deviceFP = await this.getOrCreateDeviceFingerprint(
-          params.userId,
-          params.deviceFingerprint,
-          params.ipAddress || "unknown"
-        );
-        deviceFingerprintId = deviceFP.id;
-      }
-      
       // Create pointage
       const pointageId = `ptg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const status = anomalyCheck.hasAnomaly ? "PENDING_REVIEW" : "VALID";
       const timestamp = new Date();
       
       await execute(
-        `INSERT INTO pointages (id, user_id, type, device_fingerprint_id, ip_address, geolocation, captured_photo, face_verified, verification_score, anomaly_detected, anomaly_reason, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO pointages (id, user_id, type, ip_address, geolocation, captured_photo, face_verified, verification_score, anomaly_detected, anomaly_reason, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           pointageId,
           params.userId,
           params.type,
-          deviceFingerprintId || null,
           params.ipAddress || null,
           params.geolocation ? JSON.stringify(params.geolocation) : null,
           params.capturedPhoto || null,
@@ -184,70 +171,10 @@ class PointageService {
       }
     }
     
-    // Check 5: Multiple devices (more than 3 different devices in last 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const deviceCountResult = await query(
-      `SELECT COUNT(*) as count FROM device_fingerprints WHERE user_id = ? AND last_seen >= ?`,
-      [params.userId, sevenDaysAgo]
-    ) as any[];
-    
-    if (deviceCountResult[0]?.count > 3) {
-      return {
-        hasAnomaly: true,
-        anomalyType: "MULTIPLE_DEVICES",
-        reason: `Utilisation de ${deviceCountResult[0].count} appareils différents en 7 jours`,
-        severity: "MEDIUM",
-      };
-    }
-    
     return { hasAnomaly: false };
   }
 
-  /**
-   * Get or create device fingerprint
-   */
-  private async getOrCreateDeviceFingerprint(
-    userId: string,
-    fingerprint: string,
-    userAgent: string
-  ) {
-    const fpData = JSON.parse(fingerprint);
-    
-    // Try to find existing fingerprint
-    const existing = await query(
-      `SELECT id FROM device_fingerprints WHERE user_id = ? AND fingerprint = ? LIMIT 1`,
-      [userId, fingerprint]
-    ) as any[];
-    
-    if (existing.length > 0) {
-      // Update last seen
-      await execute(
-        `UPDATE device_fingerprints SET last_seen = NOW() WHERE id = ?`,
-        [existing[0].id]
-      );
-      return { id: existing[0].id };
-    }
-    
-    // Create new fingerprint
-    const deviceId = `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await execute(
-      `INSERT INTO device_fingerprints (id, user_id, fingerprint, user_agent, platform, browser, screen_resolution, timezone, language, is_trusted, first_seen, last_seen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
-      [
-        deviceId,
-        userId,
-        fingerprint,
-        userAgent,
-        fpData.platform || null,
-        fpData.browser || null,
-        fpData.screenResolution || null,
-        fpData.timezone || null,
-        fpData.language || null,
-      ]
-    );
-    
-    return { id: deviceId };
-  }
+
 
   /**
    * Create anomaly record
@@ -283,8 +210,7 @@ class PointageService {
    * Get user pointages
    */
   async getUserPointages(userId: string, startDate?: Date, endDate?: Date) {
-    let sql = `SELECT p.*, df.* FROM pointages p
-               LEFT JOIN device_fingerprints df ON p.device_fingerprint_id = df.id
+    let sql = `SELECT p.* FROM pointages p
                WHERE p.user_id = ?`;
     const params: any[] = [userId];
     
