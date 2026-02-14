@@ -36,7 +36,6 @@ export const POST = withAuth(
       const pointage = await pointageService.createPointage({
         userId: user.id,
         type: "OUT",
-        deviceFingerprint: deviceFingerprint ? JSON.stringify(deviceFingerprint) : undefined,
         ipAddress: clientInfo.ipAddress,
         geolocation,
         capturedPhoto,
