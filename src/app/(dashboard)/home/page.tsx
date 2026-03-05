@@ -127,7 +127,7 @@ export default async function HomePage() {
   // SUPER_ADMIN sees everything; others filtered by DB VIEW permission
   const hasView = (permModule: string) => {
     if (userRole === "SUPER_ADMIN") return true
-    const actions = permissions[permModule]
+    const actions = (permissions as Record<string, string[]>)[permModule]
     if (Array.isArray(actions)) return actions.includes("VIEW")
     return false
   }
